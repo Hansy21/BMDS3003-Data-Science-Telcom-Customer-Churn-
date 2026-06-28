@@ -2,16 +2,39 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
+import os
 
-# ── Load saved model, scaler, and feature columns ──────────────────────────
-with open("models/best_model_rf.pkl", "rb") as f:
-    model = pickle.load(f)
 
-with open("models/scaler.pkl", "rb") as f:
-    scaler = pickle.load(f)
+def _load_first(paths):
+    """Load the first file that exists from a list of candidate paths."""
+    for p in paths:
+        if os.path.exists(p):
+            with open(p, "rb") as f:
+                return pickle.load(f), p
+    raise FileNotFoundError(f"None of these files exist: {paths}")
 
-with open("models/feature_columns.pkl", "rb") as f:
-    feature_columns = pickle.load(f)
+
+# ── Load the winning model, scaler, and feature columns ────────────────────
+# Prefer the model chosen by results/compare_models.py; fall back to the
+# notebook's saved Random Forest so the app still runs out of the box.
+model, model_path = _load_first(
+    ["models/best_model.pkl", "models/best_model_rf.pkl"]
+)
+
+# The scaler/feature list now come from the shared preprocessing step;
+# fall back to the older copies saved in models/.
+scaler, _ = _load_first(["shared/processed/scaler.pkl", "models/scaler.pkl"])
+feature_columns, _ = _load_first(
+    ["shared/processed/feature_columns.pkl", "models/feature_columns.pkl"]
+)
+
+# Show which model is live (read the name written by the compare script)
+_name_file = "models/best_model_name.txt"
+if os.path.exists(_name_file):
+    with open(_name_file) as f:
+        ACTIVE_MODEL = f.read().strip()
+else:
+    ACTIVE_MODEL = os.path.basename(model_path)
 
 
 # ── Page config ─────────────────────────────────────────────────────────────
@@ -21,6 +44,7 @@ st.set_page_config(
 
 st.title("📡 Telco Customer Churn Predictor")
 st.write("Fill in the customer details below to predict whether they will churn.")
+st.caption(f"Active model: **{ACTIVE_MODEL}**")
 st.divider()
 
 
