@@ -16,12 +16,20 @@ import os
 import pickle
 
 import matplotlib
+
 matplotlib.use("Agg")  # save plots to file without needing a screen
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score, roc_auc_score,
-    confusion_matrix, ConfusionMatrixDisplay, roc_curve, classification_report,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+    roc_curve,
+    classification_report,
 )
 
 # --- Standard project folders (relative to this file) ----------------------
@@ -47,20 +55,33 @@ def load_processed_data():
     return X_train, X_test, y_train, y_test
 
 
-def evaluate_and_save(model_name, model, X_test, y_test, best_params=None):
+def evaluate_and_save(
+    model_name, model, X_test, y_test, best_params=None, threshold=None
+):
     """
     Score a trained model, print a report, and save:
       - results/<model_name>_metrics.json   (numbers for the compare script)
       - results/<model_name>_confusion.png   (confusion matrix image)
       - results/<model_name>_roc.png         (ROC curve image)
       - models/<model_name>.pkl              (the trained model)
+
+    threshold : float or None
+      Optional custom decision threshold for turning predict_proba into a
+      class label (e.g. 0.35 instead of the default 0.5). Left as None,
+      behaviour is 100% unchanged (uses model.predict() like before), so
+      this is safe for every other member's script. Only pass a value here
+      if you deliberately tuned it (e.g. via out-of-fold CV probabilities,
+      never the test set) to trade some precision for higher recall.
     """
     os.makedirs(RESULTS_DIR, exist_ok=True)
     os.makedirs(MODELS_DIR, exist_ok=True)
 
     # ── Predictions ─────────────────────────────────────────────────────────
-    y_pred = model.predict(X_test)
     y_prob = model.predict_proba(X_test)[:, 1]  # probability of churn (class 1)
+    if threshold is None:
+        y_pred = model.predict(X_test)  # unchanged default behaviour (0.5 cut)
+    else:
+        y_pred = (y_prob >= threshold).astype(int)
 
     # ── Metrics (focus on recall: catching real churners matters most) ──────
     metrics = {
@@ -71,6 +92,7 @@ def evaluate_and_save(model_name, model, X_test, y_test, best_params=None):
         "f1": round(f1_score(y_test, y_pred), 4),
         "roc_auc": round(roc_auc_score(y_test, y_prob), 4),
         "best_params": best_params if best_params else {},
+        "threshold": round(threshold, 4) if threshold is not None else 0.5,
     }
 
     print(f"\n========== {model_name} ==========")
@@ -79,6 +101,10 @@ def evaluate_and_save(model_name, model, X_test, y_test, best_params=None):
     print(f"Recall   : {metrics['recall']}")
     print(f"F1-score : {metrics['f1']}")
     print(f"ROC-AUC  : {metrics['roc_auc']}")
+    print(
+        f"Threshold: {metrics['threshold']}"
+        + ("" if threshold is None else "  (tuned, not the default 0.5)")
+    )
     if best_params:
         print(f"Best params: {best_params}")
     print("---")
