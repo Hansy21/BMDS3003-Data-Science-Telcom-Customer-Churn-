@@ -222,3 +222,7 @@ results/*.png
 results/*.json
 results/*.csv
 shared/processed/*.csv
+
+#models
+models/*.pkl
+models/*.txt
