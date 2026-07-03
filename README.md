@@ -42,6 +42,7 @@ python member1_KNN/KNN.py
 python member2_/member2_model.py          # TODO: implement
 python member3_random_forest/train_random_forest.py   # TODO: implement
 python member4_/member4_model.py          # TODO: implement
+python expmodel/expmodel.py               # Use for test compare with you current model
 
 # 3. Compare all models and pick the winner
 python results/compare_models.py
