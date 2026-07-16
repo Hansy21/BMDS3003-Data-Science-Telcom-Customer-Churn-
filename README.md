@@ -112,13 +112,6 @@ is copied to `models/best_model.pkl` for the app default.
 | Deployment prototype | `app.py` Streamlit |
 | ≥ 5 APA references (incl. academic) | listed in report draft |
 
-## ZIP submission
-
-Name format from the brief: `GroupX_RSWY1S2_DataScienceProject.zip`
-
-Include Python/notebook files and the Streamlit app. Prefer regenerating large
-`.pkl` files with the commands above if the ZIP is size-limited.
-
 ## Notes for members
 
 - Always train on data from `shared/preprocessing.py` so comparisons stay fair.
