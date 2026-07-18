@@ -1,5 +1,2 @@
 model,accuracy,precision,recall,f1,roc_auc
-RandomForest,0.7608,0.5333,0.7914,0.6372,0.8417
-GradientBoosting,0.7537,0.5242,0.7807,0.6273,0.8438
-LogisticRegression,0.7374,0.5034,0.7861,0.6138,0.842
 KNN,0.7594,0.5358,0.7005,0.6072,0.8262

@@ -63,7 +63,7 @@ python shared/eda.py
 python shared/preprocessing.py
 
 # 3. Train each model (any order after step 2)
-python member1_KNN/KNN.py
+python member1_KNN_baseline/KNN.py
 python member2_logistic_regression/train_logistic_regression.py
 python member3_random_forest/train_random_forest.py
 python member4_gradient_boosting/train_gradient_boosting.py
