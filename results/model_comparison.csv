@@ -1,0 +1,2 @@
+model,accuracy,precision,recall,f1,roc_auc
+KNN,0.7594,0.5358,0.7005,0.6072,0.8262
