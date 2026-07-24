@@ -218,11 +218,11 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Project data/output artifacts
-results/*.png
-results/*.json
-results/*.csv
-shared/processed/*.csv
+# results/*.png
+# results/*.json
+# results/*.csv
+# shared/processed/*.csv
 
 #models
-models/*.pkl
-models/*.txt
+# models/*.pkl
+# models/*.txt

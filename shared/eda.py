@@ -1,0 +1,212 @@
+"""
+============================================================================
+ EXPLORATORY DATA ANALYSIS  —  figures for the written report
+============================================================================
+ Loads the raw Telco churn CSV, prints descriptive stats, and saves charts
+ under results/eda/ for insertion into the Google Docs report.
+
+ How to run (from the project root):
+   python shared/eda.py
+============================================================================
+"""
+
+import os
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(HERE)
+CSV_PATH = os.path.join(PROJECT_ROOT, "Telco_Cusomer_Churn.csv")
+OUT_DIR = os.path.join(PROJECT_ROOT, "results", "eda")
+os.makedirs(OUT_DIR, exist_ok=True)
+
+sns.set_theme(style="whitegrid", context="notebook")
+
+
+def main():
+    df = pd.read_csv(CSV_PATH)
+    df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
+    # 11 blank TotalCharges → new customers with tenure 0
+    n_missing_tc = int(df["TotalCharges"].isna().sum())
+    df["TotalCharges"] = df["TotalCharges"].fillna(0)
+
+    print("=" * 60)
+    print("DATA UNDERSTANDING — Telco Customer Churn")
+    print("=" * 60)
+    print(f"Rows: {df.shape[0]}, Columns: {df.shape[1]}")
+    print(f"TotalCharges missing (filled with 0): {n_missing_tc}")
+    print("\nColumn dtypes:\n", df.dtypes)
+    print("\nMissing values:\n", df.isnull().sum()[df.isnull().sum() > 0])
+    print("\nChurn distribution:")
+    print(df["Churn"].value_counts())
+    print(df["Churn"].value_counts(normalize=True).round(4))
+    print("\nNumeric summary:")
+    print(df[["tenure", "MonthlyCharges", "TotalCharges"]].describe().round(2))
+
+    # ── 1. Target class balance ─────────────────────────────────────────────
+    fig, ax = plt.subplots(figsize=(6, 4))
+    order = ["No", "Yes"]
+    counts = df["Churn"].value_counts().reindex(order)
+    colors = ["#4C78A8", "#E45756"]
+    bars = ax.bar(order, counts.values, color=colors, edgecolor="black")
+    ax.set_title("Churn Class Distribution", fontweight="bold")
+    ax.set_ylabel("Number of customers")
+    ax.set_xlabel("Churn")
+    for b, c in zip(bars, counts.values):
+        ax.text(
+            b.get_x() + b.get_width() / 2,
+            b.get_height() + 40,
+            f"{c}\n({c / len(df) * 100:.1f}%)",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+        )
+    plt.tight_layout()
+    fig.savefig(os.path.join(OUT_DIR, "01_churn_distribution.png"), dpi=140)
+    plt.close()
+
+    # ── 2. Numeric distributions by churn ───────────────────────────────────
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+    for ax, col in zip(axes, ["tenure", "MonthlyCharges", "TotalCharges"]):
+        sns.histplot(
+            data=df,
+            x=col,
+            hue="Churn",
+            bins=30,
+            element="step",
+            stat="density",
+            common_norm=False,
+            ax=ax,
+            palette={"No": "#4C78A8", "Yes": "#E45756"},
+        )
+        ax.set_title(col)
+    fig.suptitle("Numeric Features by Churn Status", fontweight="bold")
+    plt.tight_layout()
+    fig.savefig(os.path.join(OUT_DIR, "02_numeric_by_churn.png"), dpi=140)
+    plt.close()
+
+    # ── 3. Boxplots — tenure & charges ──────────────────────────────────────
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+    for ax, col in zip(axes, ["tenure", "MonthlyCharges", "TotalCharges"]):
+        sns.boxplot(
+            data=df,
+            x="Churn",
+            y=col,
+            hue="Churn",
+            ax=ax,
+            palette={"No": "#4C78A8", "Yes": "#E45756"},
+            order=["No", "Yes"],
+            legend=False,
+        )
+        ax.set_title(col)
+    fig.suptitle("Boxplots of Numeric Features by Churn", fontweight="bold")
+    plt.tight_layout()
+    fig.savefig(os.path.join(OUT_DIR, "03_boxplots_numeric.png"), dpi=140)
+    plt.close()
+
+    # ── 4. Churn rate by key categoricals ───────────────────────────────────
+    cat_cols = [
+        "Contract",
+        "InternetService",
+        "PaymentMethod",
+        "TechSupport",
+        "OnlineSecurity",
+        "PaperlessBilling",
+        "SeniorCitizen",
+        "Partner",
+    ]
+    # SeniorCitizen is 0/1 — map for readable labels
+    plot_df = df.copy()
+    plot_df["SeniorCitizen"] = plot_df["SeniorCitizen"].map({0: "No", 1: "Yes"})
+
+    fig, axes = plt.subplots(2, 4, figsize=(16, 8))
+    axes = axes.ravel()
+    for ax, col in zip(axes, cat_cols):
+        rates = (
+            plot_df.groupby(col)["Churn"]
+            .apply(lambda s: (s == "Yes").mean())
+            .sort_values(ascending=False)
+        )
+        rates.plot(kind="bar", ax=ax, color="#E45756", edgecolor="black")
+        ax.set_title(f"Churn rate by {col}", fontsize=10)
+        ax.set_ylabel("Churn rate")
+        ax.set_ylim(0, 0.6)
+        ax.tick_params(axis="x", rotation=35, labelsize=8)
+        ax.axhline(0.265, color="gray", ls="--", lw=1, label="overall ~26.5%")
+    fig.suptitle("Churn Rate Across Categorical Features", fontweight="bold")
+    plt.tight_layout()
+    fig.savefig(os.path.join(OUT_DIR, "04_churn_rate_by_category.png"), dpi=140)
+    plt.close()
+
+    # ── 5. Contract × Tenure heatmap (business insight) ─────────────────────
+    tenure_bins = pd.cut(
+        df["tenure"],
+        bins=[-0.1, 12, 24, 48, 72],
+        labels=["0-12", "13-24", "25-48", "49-72"],
+    )
+    pivot = (
+        df.assign(tenure_bin=tenure_bins)
+        .groupby(["Contract", "tenure_bin"], observed=True)["Churn"]
+        .apply(lambda s: (s == "Yes").mean())
+        .unstack()
+    )
+    fig, ax = plt.subplots(figsize=(8, 4))
+    sns.heatmap(pivot, annot=True, fmt=".2f", cmap="Reds", ax=ax, vmin=0, vmax=0.7)
+    ax.set_title("Churn Rate: Contract × Tenure Band", fontweight="bold")
+    ax.set_xlabel("Tenure (months)")
+    plt.tight_layout()
+    fig.savefig(os.path.join(OUT_DIR, "05_contract_tenure_heatmap.png"), dpi=140)
+    plt.close()
+
+    # ── 6. Correlation of numeric features (+ encoded churn) ────────────────
+    num = df[["tenure", "MonthlyCharges", "TotalCharges"]].copy()
+    num["Churn"] = (df["Churn"] == "Yes").astype(int)
+    fig, ax = plt.subplots(figsize=(5.5, 4.5))
+    sns.heatmap(num.corr(), annot=True, fmt=".2f", cmap="coolwarm", center=0, ax=ax)
+    ax.set_title("Correlation — Numeric Features & Churn", fontweight="bold")
+    plt.tight_layout()
+    fig.savefig(os.path.join(OUT_DIR, "06_correlation_heatmap.png"), dpi=140)
+    plt.close()
+
+    # ── 7. Monthly charges vs tenure scatter ────────────────────────────────
+    fig, ax = plt.subplots(figsize=(8, 5))
+    sample = df.sample(n=min(2000, len(df)), random_state=42)
+    sns.scatterplot(
+        data=sample,
+        x="tenure",
+        y="MonthlyCharges",
+        hue="Churn",
+        alpha=0.5,
+        palette={"No": "#4C78A8", "Yes": "#E45756"},
+        ax=ax,
+    )
+    ax.set_title("Tenure vs Monthly Charges (sample of 2000)", fontweight="bold")
+    plt.tight_layout()
+    fig.savefig(os.path.join(OUT_DIR, "07_tenure_vs_monthly.png"), dpi=140)
+    plt.close()
+
+    # ── Save a short stats table for the report ─────────────────────────────
+    summary = {
+        "n_customers": len(df),
+        "n_features_raw": df.shape[1] - 1,  # exclude target
+        "churn_rate": float((df["Churn"] == "Yes").mean()),
+        "missing_TotalCharges_filled": n_missing_tc,
+        "mean_tenure": float(df["tenure"].mean()),
+        "mean_monthly_charges": float(df["MonthlyCharges"].mean()),
+        "mean_total_charges": float(df["TotalCharges"].mean()),
+    }
+    pd.Series(summary).to_csv(os.path.join(OUT_DIR, "summary_stats.csv"), header=["value"])
+
+    print(f"\n[OK] EDA figures saved to {OUT_DIR}")
+    for f in sorted(os.listdir(OUT_DIR)):
+        print(f"  - {f}")
+
+
+if __name__ == "__main__":
+    main()
