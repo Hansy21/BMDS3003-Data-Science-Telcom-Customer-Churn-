@@ -41,8 +41,8 @@ TelcoChurn/
 │   └── train_logistic_regression.py
 ├── member3_random_forest/
 │   └── train_random_forest.py
-├── member4_gradient_boosting/
-│   └── train_gradient_boosting.py
+├── member4_decision_tree/
+│   └── train_decision_tree.py
 ├── results/
 │   ├── compare_models.py          # STEP 3 — pick best model by F1
 │   ├── eda/                       # charts for the report
@@ -64,9 +64,9 @@ python shared/preprocessing.py
 
 # 3. Train each model (any order after step 2)
 python member1_KNN_baseline/KNN.py
-python member2_logistic_regression/train_logistic_regression.py
+python member2_logistic_regression/LogisticRegression.py
 python member3_random_forest/train_random_forest.py
-python member4_gradient_boosting/train_gradient_boosting.py
+python member4_decision_tree/train_decision_tree.py
 
 # 4. Compare models and promote the winner
 python results/compare_models.py
