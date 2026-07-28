@@ -39,6 +39,10 @@ def main():
     df = pd.read_csv(CSV_PATH)
     print(f"Loaded raw data: {df.shape[0]} rows, {df.shape[1]} columns")
 
+    n_duplicates = df.duplicated().sum()
+    df = df.drop_duplicates()
+    print(f"Removed {n_duplicates} duplicate rows")
+
     # ── 2. Fix TotalCharges (stored as text, has 11 blank values) ───────────
     # Blank strings become NaN; those are brand-new customers (tenure = 0)
     # who have never been billed, so 0 is the correct value.

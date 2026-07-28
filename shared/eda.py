@@ -29,6 +29,105 @@ os.makedirs(OUT_DIR, exist_ok=True)
 sns.set_theme(style="whitegrid", context="notebook")
 
 
+def plot_additional_figures(df):
+
+    # --- Figure 08: Churn rate by streaming services ------------------------
+    fig, ax = plt.subplots(figsize=(7, 5))
+    stream_df = df.melt(
+        id_vars="Churn",
+        value_vars=["StreamingTV", "StreamingMovies"],
+        var_name="Service",
+        value_name="Subscribed",
+    )
+    rates = (
+        stream_df.groupby(["Service", "Subscribed"])["Churn"]
+        .apply(lambda s: (s == "Yes").mean() * 100)
+        .reset_index(name="ChurnRate")
+    )
+    sns.barplot(data=rates, x="Subscribed", y="ChurnRate", hue="Service", ax=ax)
+    ax.set_ylabel("Churn Rate (%)")
+    ax.set_title("Churn Rate by Streaming Services")
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUT_DIR, "08_churn_rate_streaming.png"), dpi=120)
+    plt.close()
+
+    # --- Figure 09: Churn rate by DeviceProtection & OnlineBackup -----------
+    fig, ax = plt.subplots(figsize=(7, 5))
+    addon_df = df.melt(
+        id_vars="Churn",
+        value_vars=["DeviceProtection", "OnlineBackup"],
+        var_name="Service",
+        value_name="Subscribed",
+    )
+    rates = (
+        addon_df.groupby(["Service", "Subscribed"])["Churn"]
+        .apply(lambda s: (s == "Yes").mean() * 100)
+        .reset_index(name="ChurnRate")
+    )
+    sns.barplot(data=rates, x="Subscribed", y="ChurnRate", hue="Service", ax=ax)
+    ax.set_ylabel("Churn Rate (%)")
+    ax.set_title("Churn Rate by Device Protection & Online Backup")
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUT_DIR, "09_churn_rate_protection_backup.png"), dpi=120)
+    plt.close()
+
+    # --- Figure 10: Churn rate vs number of add-on services ------------------
+    addon_cols = [
+        "OnlineSecurity",
+        "OnlineBackup",
+        "DeviceProtection",
+        "TechSupport",
+        "StreamingTV",
+        "StreamingMovies",
+    ]
+    df["total_services"] = df[addon_cols].apply(
+        lambda row: sum(v == "Yes" for v in row), axis=1
+    )
+    rates = (
+        df.groupby("total_services")["Churn"]
+        .apply(lambda s: (s == "Yes").mean() * 100)
+        .reset_index(name="ChurnRate")
+    )
+    fig, ax = plt.subplots(figsize=(7, 5))
+    sns.barplot(data=rates, x="total_services", y="ChurnRate", ax=ax, color="steelblue")
+    ax.set_xlabel("Number of Add-On Services Subscribed")
+    ax.set_ylabel("Churn Rate (%)")
+    ax.set_title("Churn Rate by Number of Add-On Services Subscribed")
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUT_DIR, "10_churn_rate_total_services.png"), dpi=120)
+    plt.close()
+
+    # --- Figure 11: PaymentMethod x Contract churn rate heatmap -------------
+    pivot = (
+        df.groupby(["PaymentMethod", "Contract"])["Churn"]
+        .apply(lambda s: (s == "Yes").mean() * 100)
+        .unstack()
+    )
+    fig, ax = plt.subplots(figsize=(7, 5))
+    sns.heatmap(pivot, annot=True, fmt=".1f", cmap="Reds", ax=ax)
+    ax.set_title("Churn Rate (%) by Payment Method and Contract Type")
+    plt.tight_layout()
+    plt.savefig(
+        os.path.join(OUT_DIR, "11_churn_rate_payment_contract_heatmap.png"), dpi=120
+    )
+    plt.close()
+
+    # --- Figure 12: MonthlyCharges vs TotalCharges scatter, colored by Churn -
+    fig, ax = plt.subplots(figsize=(7, 5))
+    sns.scatterplot(
+        data=df,
+        x="MonthlyCharges",
+        y="TotalCharges",
+        hue="Churn",
+        alpha=0.5,
+        ax=ax,
+    )
+    ax.set_title("Monthly Charges vs Total Charges by Churn Status")
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUT_DIR, "12_monthly_vs_total_scatter.png"), dpi=120)
+    plt.close()
+
+
 def main():
     df = pd.read_csv(CSV_PATH)
     df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
@@ -201,7 +300,11 @@ def main():
         "mean_monthly_charges": float(df["MonthlyCharges"].mean()),
         "mean_total_charges": float(df["TotalCharges"].mean()),
     }
-    pd.Series(summary).to_csv(os.path.join(OUT_DIR, "summary_stats.csv"), header=["value"])
+    pd.Series(summary).to_csv(
+        os.path.join(OUT_DIR, "summary_stats.csv"), header=["value"]
+    )
+
+    plot_additional_figures(df)
 
     print(f"\n[OK] EDA figures saved to {OUT_DIR}")
     for f in sorted(os.listdir(OUT_DIR)):
