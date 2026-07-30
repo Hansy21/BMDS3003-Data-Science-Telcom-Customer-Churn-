@@ -65,7 +65,7 @@ python shared/preprocessing.py
 # 3. Train each model (any order after step 2)
 python member1_KNN_baseline/KNN.py
 python member2_logistic_regression/LogisticRegression.py
-python member3_random_forest/train_random_forest.py
+python member3_random_forest/RandomForest.py
 python member4_decision_tree/train_decision_tree.py
 
 # 4. Compare models and promote the winner
