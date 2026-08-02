@@ -22,13 +22,21 @@
 
  Hyperparameter tuning:
    We use GridSearchCV (5-fold, stratified) to search over:
-     - n_neighbors : how many neighbours vote on the prediction
-     - weights     : 'uniform' (all neighbours count equally) vs
-                     'distance' (closer neighbours count more)
-     - p           : 1 = Manhattan distance, 2 = Euclidean distance
-   Scoring is by F1, matching the project-wide convention in
-   results/compare_models.py (churn is imbalanced, so F1 balances
-   precision and recall better than plain accuracy).
+     - select__k        : how many of the most informative features to keep
+                          (SelectKBest + mutual information — KNN is a
+                          distance-based model, so near-zero-signal features
+                          like gender/PhoneService only add noise to the
+                          distance calculation and dilute the useful ones)
+     - knn__n_neighbors : how many neighbours vote on the prediction
+     - knn__weights     : 'uniform' (all neighbours count equally) vs
+                          'distance' (closer neighbours count more)
+     - knn__p           : 1 = Manhattan distance, 2 = Euclidean distance
+   The feature selector lives INSIDE a Pipeline, so it is re-fitted on each
+   CV fold's training portion only — no information leaks across folds.
+   Scoring is by ROC-AUC rather than F1: the decision threshold is tuned
+   separately afterwards (see below), so the grid search should optimise
+   the *ranking quality* of the predicted probabilities, not the F1 at an
+   arbitrary 0.5 cut-off that we never actually use.
 
  Class imbalance & the decision threshold (recall-focused improvement):
    The training data is ~73% "No Churn" / 27% "Churn". KNeighborsClassifier
@@ -69,9 +77,12 @@ import os
 import sys
 
 import numpy as np
+from sklearn.feature_selection import SelectKBest, mutual_info_classif
 from sklearn.metrics import precision_recall_curve
 from sklearn.model_selection import GridSearchCV, cross_val_predict
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import Pipeline
+from functools import partial
 
 # --- Make the shared/ folder importable no matter where this is run from --
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -97,27 +108,43 @@ def main():
         f"{X_test.shape[0]} test rows, {X_train.shape[1]} features"
     )
 
-    # ── 2. Hyperparameter grid ───────────────────────────────────────────────
+    # ── 2. Pipeline + hyperparameter grid ────────────────────────────────────
+    # SelectKBest runs INSIDE the pipeline, so feature selection is re-fitted
+    # on each CV fold's training split only (no leakage across folds).
     # Odd values for n_neighbors avoid tie votes in binary classification.
+    # The range extends past 31 because the previous best (k=31) sat at the
+    # edge of the old grid — a sign the optimum may lie further out.
+    pipe = Pipeline(
+        [
+            ("select", SelectKBest(partial(mutual_info_classif, random_state=42))),
+            ("knn", KNeighborsClassifier(n_jobs=-1)),
+        ]
+    )
+
     param_grid = {
-        "n_neighbors": [3, 5, 7, 9, 11, 15, 21, 31],
-        "weights": ["uniform", "distance"],
-        "p": [1, 2],  # 1 = Manhattan, 2 = Euclidean
+        "select__k": [10, 15, 20, 25, "all"],
+        "knn__n_neighbors": [3, 5, 7, 9, 11, 15, 21, 31, 41, 51],
+        "knn__weights": ["uniform", "distance"],
+        "knn__p": [1, 2],  # 1 = Manhattan, 2 = Euclidean
     }
 
-    base_model = KNeighborsClassifier(n_jobs=-1)
-
+    # Scoring by ROC-AUC: the threshold is tuned separately in step 4, so the
+    # grid should optimise probability ranking quality, not F1 at the unused
+    # 0.5 default cut-off.
     grid = GridSearchCV(
-        estimator=base_model,
+        estimator=pipe,
         param_grid=param_grid,
-        scoring="f1",
+        scoring="roc_auc",
         cv=5,
         n_jobs=-1,
         verbose=1,
     )
 
     # ── 3. Search for the best combination of hyperparameters ───────────────
-    print("\nRunning GridSearchCV (5-fold) over n_neighbors / weights / p ...")
+    print(
+        "\nRunning GridSearchCV (5-fold) over select__k / n_neighbors / "
+        "weights / p (scoring = ROC-AUC) ..."
+    )
     grid.fit(X_train, y_train)
 
     best_model = grid.best_estimator_
@@ -126,13 +153,21 @@ def main():
     cv_std = grid.cv_results_["std_test_score"][best_index]
     print(f"\n[OK] Best params found: {best_params}")
     print(
-        f"     Best CV F1 score:   {grid.best_score_:.4f}  (+/- {cv_std:.4f} std across the 5 folds)"
+        f"     Best CV ROC-AUC:  {grid.best_score_:.4f}  (+/- {cv_std:.4f} std across the 5 folds)"
     )
     print(
         "     A small std means the score is stable across folds; a large "
         "one means performance depends heavily on which rows landed in "
         "which fold, so treat the number with more caution."
     )
+
+    # Show which features survived selection (useful evidence for the report)
+    select_step = best_model.named_steps["select"]
+    if select_step.k != "all":
+        kept = X_train.columns[select_step.get_support()]
+        dropped = X_train.columns[~select_step.get_support()]
+        print(f"\n     Features kept ({len(kept)}): {list(kept)}")
+        print(f"     Features dropped ({len(dropped)}): {list(dropped)}")
 
     # ── 4. Tune the decision threshold to protect recall ─────────────────────
     # KNN can't use class_weight="balanced" like the tree models can, so we
@@ -168,6 +203,38 @@ def main():
         print(
             f"[WARN] Could not reach {RECALL_TARGET:.0%} recall at any "
             "threshold on the training folds — keeping the default 0.5 cut."
+        )
+
+    # ── 4b. Sensitivity check: is RECALL_TARGET actually a good choice? ─────
+    # Instead of just trusting one fixed target, sweep across several targets
+    # using the SAME out-of-fold probabilities, and report test-set F1 for
+    # each. This turns "we picked 0.70" into "we tested 0.60-0.80 and 0.70
+    # gave the best F1" — real evidence for the report, not a guess.
+    print("\nRecall-target sensitivity check (for report justification):")
+    print(
+        f"{'target':>8}{'threshold':>12}{'accuracy':>10}{'precision':>11}{'recall':>9}{'f1':>8}"
+    )
+    for target in [0.60, 0.65, 0.70, 0.75, 0.80]:
+        qual = np.where(recall >= target)[0]
+        if len(qual) == 0:
+            continue
+        idx = qual[np.argmax(precision[qual])]
+        t = float(thresholds[idx])
+        test_probs = best_model.predict_proba(X_test)[:, 1]
+        test_preds = (test_probs >= t).astype(int)
+        from sklearn.metrics import (
+            accuracy_score,
+            f1_score,
+            precision_score,
+            recall_score,
+        )
+
+        print(
+            f"{target:>8.2f}{t:>12.3f}"
+            f"{accuracy_score(y_test, test_preds):>10.3f}"
+            f"{precision_score(y_test, test_preds):>11.3f}"
+            f"{recall_score(y_test, test_preds):>9.3f}"
+            f"{f1_score(y_test, test_preds):>8.3f}"
         )
 
     # ── 5. Evaluate on the held-out test set and save everything ────────────

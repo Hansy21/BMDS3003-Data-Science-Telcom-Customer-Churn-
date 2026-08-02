@@ -39,6 +39,7 @@ def main():
     df = pd.read_csv(CSV_PATH)
     print(f"Loaded raw data: {df.shape[0]} rows, {df.shape[1]} columns")
 
+    # Check for duplicates data
     n_duplicates = df.duplicated().sum()
     df = df.drop_duplicates()
     print(f"Removed {n_duplicates} duplicate rows")
@@ -65,12 +66,27 @@ def main():
     df["PaperlessBilling"] = df["PaperlessBilling"].map({"Yes": 1, "No": 0})
 
     # ── 6. One-hot encode the multi-value text columns ──────────────────────
+    # drop_first=True removes one redundant category per column (e.g. for a
+    # 3-category feature like InternetService, only 2 dummy columns are kept
+    # instead of 3 — the dropped category is implied when all remaining
+    # dummies are 0). This avoids multicollinearity between dummy columns
+    # and reduces the total feature count from 40 to 30, which noticeably
+    # helps distance-based models like KNN (fewer, less redundant dimensions
+    # means distances are less diluted) without changing the information
+    # available to any model.
     multi_cols = [
-        "MultipleLines", "InternetService", "OnlineSecurity", "OnlineBackup",
-        "DeviceProtection", "TechSupport", "StreamingTV", "StreamingMovies",
-        "Contract", "PaymentMethod",
+        "MultipleLines",
+        "InternetService",
+        "OnlineSecurity",
+        "OnlineBackup",
+        "DeviceProtection",
+        "TechSupport",
+        "StreamingTV",
+        "StreamingMovies",
+        "Contract",
+        "PaymentMethod",
     ]
-    df = pd.get_dummies(df, columns=multi_cols)
+    df = pd.get_dummies(df, columns=multi_cols, drop_first=True)
     print(f"After encoding: {df.shape[1]} columns")
 
     # ── 7. Split into features (X) and target (y) ───────────────────────────
