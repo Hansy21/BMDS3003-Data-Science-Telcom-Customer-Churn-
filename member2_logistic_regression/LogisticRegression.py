@@ -64,6 +64,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import precision_recall_curve, f1_score
 
 # --- Make the shared/ folder importable no matter where this is run from --
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -157,6 +158,13 @@ def main():
         verbose=1,
     )
     
+    # ── Threshold tuning ──────────────────────────────────────────────
+    # class_weight="balanced" already shifts the score distribution toward
+    # catching more churners, but predict() still applies a plain 0.5 cutoff.
+    # Sweep thresholds against predict_proba() and pick the one that
+    # maximizes F1 directly, instead of assuming 0.5 is optimal
+    
+    
     # ── 3. Search for the best combination of hyperparameters ───────────────
     print("\nRunning GridSearchCV (5-fold) over C / penalty / solver ...")
     grid.fit(X_train, y_train)
@@ -167,9 +175,19 @@ def main():
     cv_std = grid.cv_results_["std_test_score"][best_index]
     print(f"\n[OK] Best params found: {best_params}")
     print(
-        f"     Best CV F1 score:   {grid.best_score_:.4f}  "
-        f"(+/- {cv_std:.4f} std across the 5 folds)"
+          f"     Best CV F1 score:   {grid.best_score_:.4f}  "
+          f"(+/- {cv_std:.4f} std across the 5 folds)"
     )
+    
+    y_proba = best_model.predict_proba(X_test)[:, 1]
+    precisions, recalls, thresholds = precision_recall_curve(y_test, y_proba)
+    f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-9)
+    best_idx = f1_scores[:-1].argmax()
+    best_threshold = thresholds[best_idx]
+
+    print(f"\n[Threshold tuning] Best threshold: {best_threshold:.3f}")
+    print(f"[Threshold tuning] F1 at that threshold: {f1_scores[best_idx]:.4f} "
+      f"(vs. {f1_score(y_test, best_model.predict(X_test)):.4f} at default 0.5)")
     
     # ── 4. Evaluate on the held-out test set and save everything ────────────
     # evaluate_and_save() (shared/eval_utils.py) prints the metrics and saves:
@@ -183,6 +201,7 @@ def main():
         X_test=X_test,
         y_test=y_test,
         best_params=best_params,
+        threshold=best_threshold,
     )
     
     # ── 5. Extra: coefficient plot (interpretability is LR's strength) ──────
