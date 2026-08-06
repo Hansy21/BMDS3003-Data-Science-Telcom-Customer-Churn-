@@ -86,13 +86,18 @@ def load_model(name: str):
 
 
 @st.cache_data
-def load_model_threshold(name: str) -> float:
-    """Custom decision threshold from training metrics JSON, else 0.5."""
+def load_model_metrics(name: str) -> dict:
+    """Full metrics dict saved by the training script, else {}."""
     path = os.path.join(RESULTS_DIR, f"{name}_metrics.json")
     if os.path.exists(path):
         with open(path) as f:
-            return json.load(f).get("threshold", 0.5)
-    return 0.5
+            return json.load(f)
+    return {}
+
+
+def load_model_threshold(name: str) -> float:
+    """Custom decision threshold from training metrics JSON, else 0.5."""
+    return load_model_metrics(name).get("threshold", 0.5)
 
 
 @st.cache_data
@@ -104,16 +109,37 @@ def load_test_set():
 
 @st.cache_data(show_spinner=False)
 def score_model(name: str, _model, X_test, y_test):
-    """Score one model on the held-out test set (live metrics for Insights tab)."""
+    """Score one model on the held-out test set.
+
+    The displayed metrics come from results/<name>_metrics.json (the exact
+    numbers produced at training time and used in the report), so the app
+    always matches the report. y_pred / y_prob are still computed live so the
+    confusion matrix and ROC curve can be drawn. If the JSON is missing, the
+    metrics fall back to a live recomputation.
+    """
     y_prob = _model.predict_proba(X_test.astype(float))[:, 1]
     threshold = load_model_threshold(name)
     y_pred = (y_prob >= threshold).astype(int)
-    metrics = {
-        "model": name,
-        "accuracy": accuracy_score(y_test, y_pred),
-        "precision": precision_score(y_test, y_pred, zero_division=0),
-        "recall": recall_score(y_test, y_pred, zero_division=0),
-        "f1": f1_score(y_test, y_pred, zero_division=0),
-        "roc_auc": roc_auc_score(y_test, y_prob),
-    }
+
+    saved = load_model_metrics(name)
+    if saved:
+        # Use the exact training-time metrics shown in the report.
+        metrics = {
+            "model": name,
+            "accuracy": saved.get("accuracy"),
+            "precision": saved.get("precision"),
+            "recall": saved.get("recall"),
+            "f1": saved.get("f1"),
+            "roc_auc": saved.get("roc_auc"),
+        }
+    else:
+        # Fallback: recompute live if no metrics JSON exists.
+        metrics = {
+            "model": name,
+            "accuracy": accuracy_score(y_test, y_pred),
+            "precision": precision_score(y_test, y_pred, zero_division=0),
+            "recall": recall_score(y_test, y_pred, zero_division=0),
+            "f1": f1_score(y_test, y_pred, zero_division=0),
+            "roc_auc": roc_auc_score(y_test, y_prob),
+        }
     return y_pred, y_prob, metrics

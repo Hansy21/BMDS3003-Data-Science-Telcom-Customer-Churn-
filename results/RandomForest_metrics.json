@@ -1,16 +1,16 @@
 {
   "model": "RandomForest",
-  "accuracy": 0.7665,
-  "precision": 0.5458,
-  "recall": 0.7166,
-  "f1": 0.6197,
-  "roc_auc": 0.8393,
+  "accuracy": 0.7622,
+  "precision": 0.5355,
+  "recall": 0.7861,
+  "f1": 0.6371,
+  "roc_auc": 0.8427,
   "best_params": {
     "max_depth": 10,
-    "max_features": "log2",
-    "min_samples_leaf": 1,
+    "max_features": "sqrt",
+    "min_samples_leaf": 2,
     "min_samples_split": 5,
-    "n_estimators": 300
+    "n_estimators": 100
   },
   "threshold": 0.5
 }
