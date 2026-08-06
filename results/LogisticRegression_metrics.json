@@ -1,14 +1,14 @@
 {
   "model": "LogisticRegression",
-  "accuracy": 0.7445,
-  "precision": 0.5122,
-  "recall": 0.7861,
-  "f1": 0.6203,
+  "accuracy": 0.7488,
+  "precision": 0.5182,
+  "recall": 0.762,
+  "f1": 0.6169,
   "roc_auc": 0.8409,
   "best_params": {
     "C": 0.1,
     "l1_ratio": 1.0,
     "solver": "liblinear"
   },
-  "threshold": 0.5
+  "threshold": 0.527
 }

@@ -29,6 +29,78 @@ os.makedirs(OUT_DIR, exist_ok=True)
 sns.set_theme(style="whitegrid", context="notebook")
 
 
+def plot_outlier_analysis(df):
+    """Figure 13 + outlier_summary.csv — IQR-based outlier check for the
+    three continuous numeric features, for Section 3.0 Data Preparation."""
+
+    numeric_cols = ["tenure", "MonthlyCharges", "TotalCharges"]
+    summary_rows = []
+
+    fig, axes = plt.subplots(1, 3, figsize=(13, 5))
+    for ax, col in zip(axes, numeric_cols):
+        q1, q3 = df[col].quantile(0.25), df[col].quantile(0.75)
+        iqr = q3 - q1
+        lower_bound = q1 - 1.5 * iqr
+        upper_bound = q3 + 1.5 * iqr
+        n_outliers = df[(df[col] < lower_bound) | (df[col] > upper_bound)].shape[0]
+
+        sns.boxplot(y=df[col], ax=ax, color="#4C78A8")
+
+        # Keep the axis scaled to the actual data (with small padding), not
+        # stretched down to a meaningless negative bound (these features
+        # can't physically be negative) — only draw the upper bound if it
+        # falls near the visible data range, and always show both bound
+        # values in the title/legend text regardless of where they plot.
+        data_min, data_max = df[col].min(), df[col].max()
+        pad = (data_max - data_min) * 0.08
+        ax.set_ylim(data_min - pad, data_max + pad)
+
+        if upper_bound <= data_max + pad:
+            ax.axhline(
+                upper_bound,
+                color="red",
+                linestyle="--",
+                linewidth=1.2,
+                label=f"Upper bound = {upper_bound:.1f}",
+            )
+            ax.legend(fontsize=8, loc="upper left")
+
+        ax.set_title(
+            f"{col}\nIQR bounds: [{lower_bound:.1f}, {upper_bound:.1f}]  |  "
+            f"{n_outliers} outlier(s) found",
+            fontsize=10,
+        )
+
+        summary_rows.append(
+            {
+                "feature": col,
+                "Q1": round(q1, 2),
+                "Q3": round(q3, 2),
+                "IQR": round(iqr, 2),
+                "lower_bound": round(lower_bound, 2),
+                "upper_bound": round(upper_bound, 2),
+                "actual_min": round(df[col].min(), 2),
+                "actual_max": round(df[col].max(), 2),
+                "n_outliers": n_outliers,
+            }
+        )
+
+    fig.suptitle(
+        "Outlier Assessment: Boxplots with IQR Bounds (1.5 x IQR)", fontweight="bold"
+    )
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUT_DIR, "13_outlier_boxplots_iqr.png"), dpi=140)
+    plt.close()
+
+    summary_df = pd.DataFrame(summary_rows)
+    summary_df.to_csv(os.path.join(OUT_DIR, "outlier_summary.csv"), index=False)
+
+    print("\nOutlier assessment (IQR method, 1.5 x IQR):")
+    print(summary_df.to_string(index=False))
+
+    return summary_df
+
+
 def plot_additional_figures(df):
 
     # --- Figure 08: Churn rate by streaming services ------------------------
@@ -305,6 +377,7 @@ def main():
     )
 
     plot_additional_figures(df)
+    plot_outlier_analysis(df)
 
     print(f"\n[OK] EDA figures saved to {OUT_DIR}")
     for f in sorted(os.listdir(OUT_DIR)):

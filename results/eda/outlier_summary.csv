@@ -1,0 +1,4 @@
+feature,Q1,Q3,IQR,lower_bound,upper_bound,actual_min,actual_max,n_outliers
+tenure,9.0,55.0,46.0,-60.0,124.0,0.0,72.0,0
+MonthlyCharges,35.5,89.85,54.35,-46.02,171.38,18.25,118.75,0
+TotalCharges,398.55,3786.6,3388.05,-4683.52,8868.67,0.0,8684.8,0

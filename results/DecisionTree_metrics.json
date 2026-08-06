@@ -1,0 +1,16 @@
+{
+  "model": "DecisionTree",
+  "accuracy": 0.7658,
+  "precision": 0.5438,
+  "recall": 0.7299,
+  "f1": 0.6233,
+  "roc_auc": 0.8357,
+  "best_params": {
+    "ccp_alpha": 0.001,
+    "criterion": "entropy",
+    "max_depth": 7,
+    "min_samples_leaf": 10,
+    "min_samples_split": 2
+  },
+  "threshold": 0.5842
+}

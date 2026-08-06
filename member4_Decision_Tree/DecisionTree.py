@@ -58,11 +58,12 @@ import os
 import sys
 
 import matplotlib
+
 matplotlib.use("Agg")  # save plots to file without needing a screen
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier, plot_tree
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, cross_val_predict
 from sklearn.metrics import precision_recall_curve, f1_score
 
 # --- Make the shared/ folder importable no matter where this is run from --
@@ -173,8 +174,10 @@ def main():
     )
 
     # ── 3. Search for the best combination of hyperparameters ───────────────
-    print("\nRunning GridSearchCV (5-fold) over criterion / max_depth / "
-          "min_samples_split / min_samples_leaf / ccp_alpha ...")
+    print(
+        "\nRunning GridSearchCV (5-fold) over criterion / max_depth / "
+        "min_samples_split / min_samples_leaf / ccp_alpha ..."
+    )
     grid.fit(X_train, y_train)
 
     best_model = grid.best_estimator_
@@ -186,22 +189,37 @@ def main():
         f"     Best CV F1 score:   {grid.best_score_:.4f}  "
         f"(+/- {cv_std:.4f} std across the 5 folds)"
     )
-    print(f"     Tree depth actually used: {best_model.get_depth()}, "
-          f"leaves: {best_model.get_n_leaves()}")
+    print(
+        f"     Tree depth actually used: {best_model.get_depth()}, "
+        f"leaves: {best_model.get_n_leaves()}"
+    )
 
     # ── Threshold tuning (same approach as LogisticRegression.py) ───────────
     # class_weight="balanced" shifts the score distribution, but predict()
     # still applies a plain 0.5 cutoff. Sweep thresholds against
     # predict_proba() and pick the one that maximizes F1 directly.
-    y_proba = best_model.predict_proba(X_test)[:, 1]
-    precisions, recalls, thresholds = precision_recall_curve(y_test, y_proba)
+    # ── Threshold tuning (LEAK-FREE) ─────────────────────────────────────
+    # class_weight="balanced" shifts the score distribution, but predict()
+    # still applies a plain 0.5 cutoff. To find a better cutoff WITHOUT
+    # touching the test set, get out-of-fold probabilities on the TRAINING
+    # set via 5-fold cross_val_predict (each row's prediction comes from a
+    # fold-model that never saw that row), sweep thresholds against those,
+    # and pick the one that maximizes F1. X_test/y_test stay untouched
+    # until evaluate_and_save() at the very end.
+    oof_probs = cross_val_predict(
+        best_model, X_train, y_train, cv=5, method="predict_proba", n_jobs=-1
+    )[:, 1]
+    precisions, recalls, thresholds = precision_recall_curve(y_train, oof_probs)
     f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-9)
     best_idx = f1_scores[:-1].argmax()
-    best_threshold = thresholds[best_idx]
+    best_threshold = float(thresholds[best_idx])
 
-    print(f"\n[Threshold tuning] Best threshold: {best_threshold:.3f}")
-    print(f"[Threshold tuning] F1 at that threshold: {f1_scores[best_idx]:.4f} "
-          f"(vs. {f1_score(y_test, best_model.predict(X_test)):.4f} at default 0.5)")
+    print(
+        f"\n[Threshold tuning] Best threshold (from training folds only): {best_threshold:.3f}"
+    )
+    print(
+        f"[Threshold tuning] Out-of-fold F1 at that threshold: {f1_scores[best_idx]:.4f}"
+    )
 
     # ── 4. Evaluate on the held-out test set and save everything ────────────
     # evaluate_and_save() (shared/eval_utils.py) prints the metrics and saves:
