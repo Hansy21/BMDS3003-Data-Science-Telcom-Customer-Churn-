@@ -78,27 +78,54 @@ def render_analysis_tab() -> None:
         )
         return
 
-    group_titles = [g["title"] for g in GROUPS]
-    selected_group = st.radio(
-        "Jump to a section",
-        group_titles,
-        horizontal=True,
-        key="analysis_group_select",
-    )
+    # Layout controls
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        group_titles = [g["title"] for g in GROUPS]
+        selected_group = st.radio(
+            "Jump to a section",
+            group_titles,
+            horizontal=True,
+            key="analysis_group_select",
+        )
+    with col2:
+        num_columns = st.select_slider(
+            "Layout",
+            options=[1, 2, 3],
+            value=1,
+            key="analysis_columns",
+            help="Choose how many diagrams to display per row"
+        )
+
+    st.markdown("---")
 
     for group in GROUPS:
         if group["title"] != selected_group:
             continue
 
         missing = []
-        cols = st.columns(2)
-        for i, (filename, caption) in enumerate(group["files"].items()):
-            path = os.path.join(EDA_DIR, filename)
-            if not os.path.exists(path):
-                missing.append(filename)
-                continue
-            with cols[i % 2]:
-                st.image(path, caption=caption, use_container_width=True)
+
+        # Convert files dict to list for easier indexing
+        files_list = list(group["files"].items())
+
+        # Create rows based on selected number of columns
+        for row_start in range(0, len(files_list), num_columns):
+            cols = st.columns(num_columns)
+
+            for col_idx in range(num_columns):
+                file_idx = row_start + col_idx
+                if file_idx >= len(files_list):
+                    break
+
+                filename, caption = files_list[file_idx]
+                path = os.path.join(EDA_DIR, filename)
+
+                if not os.path.exists(path):
+                    missing.append(filename)
+                    continue
+
+                with cols[col_idx]:
+                    st.image(path, caption=caption, use_container_width=True)
 
         if missing:
             st.info(
