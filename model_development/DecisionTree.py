@@ -154,11 +154,11 @@ def main():
     )
 
     # ── 2. Base model ─────────────────────────────────────────────────────
-    # class_weight="balanced" handles the ~73/27 imbalance automatically,
-    # same as LogisticRegression — no manual threshold trick needed for
-    # class balance itself (we still tune the threshold for F1 below).
+    # NOTE: class_weight="balanced" removed on purpose — this is what
+    # pushes accuracy up (at a cost to recall), consistent with the same
+    # change made to KNN, LogisticRegression, and RandomForest. See
+    # Section 5.0 of the report for the accuracy-vs-recall trade-off.
     base_model = DecisionTreeClassifier(
-        class_weight="balanced",
         random_state=42,
     )
 
@@ -194,32 +194,11 @@ def main():
         f"leaves: {best_model.get_n_leaves()}"
     )
 
-    # ── Threshold tuning (same approach as LogisticRegression.py) ───────────
-    # class_weight="balanced" shifts the score distribution, but predict()
-    # still applies a plain 0.5 cutoff. Sweep thresholds against
-    # predict_proba() and pick the one that maximizes F1 directly.
-    # ── Threshold tuning (LEAK-FREE) ─────────────────────────────────────
-    # class_weight="balanced" shifts the score distribution, but predict()
-    # still applies a plain 0.5 cutoff. To find a better cutoff WITHOUT
-    # touching the test set, get out-of-fold probabilities on the TRAINING
-    # set via 5-fold cross_val_predict (each row's prediction comes from a
-    # fold-model that never saw that row), sweep thresholds against those,
-    # and pick the one that maximizes F1. X_test/y_test stay untouched
-    # until evaluate_and_save() at the very end.
-    oof_probs = cross_val_predict(
-        best_model, X_train, y_train, cv=5, method="predict_proba", n_jobs=-1
-    )[:, 1]
-    precisions, recalls, thresholds = precision_recall_curve(y_train, oof_probs)
-    f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-9)
-    best_idx = f1_scores[:-1].argmax()
-    best_threshold = float(thresholds[best_idx])
-
-    print(
-        f"\n[Threshold tuning] Best threshold (from training folds only): {best_threshold:.3f}"
-    )
-    print(
-        f"[Threshold tuning] Out-of-fold F1 at that threshold: {f1_scores[best_idx]:.4f}"
-    )
+    # ── Threshold: kept at the plain default (0.5) on purpose ───────────────
+    # No custom threshold tuning here — combined with removing
+    # class_weight="balanced" above, this is what maximises overall
+    # accuracy rather than recall on the minority "Churn" class.
+    best_threshold = None
 
     # ── 4. Evaluate on the held-out test set and save everything ────────────
     # evaluate_and_save() (shared/eval_utils.py) prints the metrics and saves:
