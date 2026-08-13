@@ -22,7 +22,7 @@ from prototype.loaders import (
 )
 from prototype.sidebar import render_sidebar
 from prototype.styles import inject_styles
-from prototype.tabs import render_insights_tab, render_predict_tab
+from prototype.tabs import render_analysis_tab, render_insights_tab, render_predict_tab
 
 # ---------------------------------------------------------------------------
 # 1. Page setup
@@ -70,8 +70,8 @@ st.caption(
     "Set customer details in the **sidebar**, then view results here."
 )
 
-predict_tab, insights_tab = st.tabs(
-    ["🔮 Prediction Dashboard", "📊 Model Insights"]
+predict_tab, insights_tab, analysis_tab = st.tabs(
+    ["🔮 Prediction Dashboard", "📊 Model Insights", "📈 Data Analysis"]
 )
 
 with predict_tab:
@@ -86,3 +86,6 @@ with insights_tab:
         X_test=sidebar["X_test"],
         y_test=sidebar["y_test"],
     )
+
+with analysis_tab:
+    render_analysis_tab()

@@ -46,11 +46,6 @@ def plot_outlier_analysis(df):
 
         sns.boxplot(y=df[col], ax=ax, color="#4C78A8")
 
-        # Keep the axis scaled to the actual data (with small padding), not
-        # stretched down to a meaningless negative bound (these features
-        # can't physically be negative) — only draw the upper bound if it
-        # falls near the visible data range, and always show both bound
-        # values in the title/legend text regardless of where they plot.
         data_min, data_max = df[col].min(), df[col].max()
         pad = (data_max - data_min) * 0.08
         ax.set_ylim(data_min - pad, data_max + pad)
