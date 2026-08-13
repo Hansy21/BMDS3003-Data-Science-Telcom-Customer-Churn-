@@ -48,14 +48,23 @@ def render_insights_tab(
     display_df.insert(
         0,
         "Best",
-        display_df["model"].apply(
-            lambda m: "⭐" if m == best_model_name else ""
-        ),
+        display_df["model"].apply(lambda m: "⭐" if m == best_model_name else ""),
     )
     for col in ["accuracy", "precision", "recall", "f1", "roc_auc"]:
         display_df[col] = display_df[col].round(4)
 
-    st.dataframe(display_df, use_container_width=True, hide_index=True)
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "accuracy": st.column_config.NumberColumn("accuracy", format="%.4f"),
+            "precision": st.column_config.NumberColumn("precision", format="%.4f"),
+            "recall": st.column_config.NumberColumn("recall", format="%.4f"),
+            "f1": st.column_config.NumberColumn("f1", format="%.4f"),
+            "roc_auc": st.column_config.NumberColumn("roc_auc", format="%.4f"),
+        },
+    )
     st.caption(
         "Ranked by F1. Metrics are recomputed live on the same test set used in training."
     )

@@ -169,14 +169,21 @@ def main():
         print(f"\n     Features kept ({len(kept)}): {list(kept)}")
         print(f"     Features dropped ({len(dropped)}): {list(dropped)}")
 
-    # ── 4. Tune the decision threshold to protect recall ─────────────────────
-    # KNN can't use class_weight="balanced" like the tree models can, so we
-    # compensate here instead of at 0.5. Everything below only ever looks at
-    # X_train/y_train (via 5-fold out-of-fold predictions) — X_test is still
-    # completely untouched until the very last line.
+    # ── 4. Threshold: kept at the plain default (0.5) on purpose ────────────
+    # NOTE: the recall-focused threshold tuning is disabled here — this is
+    # KNN's equivalent of removing class_weight="balanced" from the other
+    # models. Without a lowered threshold, predict() naturally leans toward
+    # the majority "No Churn" class, which raises overall accuracy at the
+    # cost of recall on the minority "Churn" class. See Section 5.0 of the
+    # report for the accuracy-vs-recall trade-off discussion.
+    #
+    # The out-of-fold sensitivity check below is still computed and printed
+    # for that report discussion — it just no longer determines the
+    # threshold actually used (chosen_threshold is fixed to None).
     print(
-        f"\nTuning decision threshold for recall >= {RECALL_TARGET:.0%} "
-        "using out-of-fold CV probabilities on the TRAINING set..."
+        "\nComputing out-of-fold CV probabilities on the TRAINING set "
+        "(for the sensitivity table below; the model itself uses the "
+        "default 0.5 threshold)..."
     )
     oof_probs = cross_val_predict(
         best_model, X_train, y_train, cv=5, method="predict_proba", n_jobs=-1
@@ -186,24 +193,7 @@ def main():
     # thresholds (it appends the (1.0, 0.0) endpoint), so align them first.
     precision, recall = precision[:-1], recall[:-1]
 
-    qualifying = np.where(recall >= RECALL_TARGET)[0]
-    if len(qualifying) > 0:
-        # Among thresholds that hit the recall target, take the one with
-        # the best precision (i.e. fewest false alarms for that recall).
-        best_i = qualifying[np.argmax(precision[qualifying])]
-        chosen_threshold = float(thresholds[best_i])
-        print(
-            f"[OK] Chosen threshold: {chosen_threshold:.3f}  "
-            f"(out-of-fold recall={recall[best_i]:.3f}, precision={precision[best_i]:.3f})"
-        )
-    else:
-        # Recall target isn't reachable even at the most lenient threshold
-        # tried (rare, but possible) — fall back to the default 0.5 cut.
-        chosen_threshold = None
-        print(
-            f"[WARN] Could not reach {RECALL_TARGET:.0%} recall at any "
-            "threshold on the training folds — keeping the default 0.5 cut."
-        )
+    chosen_threshold = None
 
     # ── 4b. Sensitivity check: is RECALL_TARGET actually a good choice? ─────
     # Instead of just trusting one fixed target, sweep across several targets
