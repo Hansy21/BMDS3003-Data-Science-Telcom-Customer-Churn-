@@ -16,38 +16,39 @@ framework. Group of 4 — each member owns one machine learning model.
 ```
 TelcoChurn/
 ├── Telco_Cusomer_Churn.csv
-├── Telco_churn.ipynb              # optional exploration notebook
 ├── REPORT_DRAFT.md                # written report skeleton for Google Docs
 ├── requirements.txt
 ├── app.py                         # Streamlit entry (thin — wires modules)
-├── prototype/                     # Streamlit UI package (see prototype/README.md)
+├── prototype/                     # Streamlit UI package
 │   ├── config.py                  # paths, presets, select options
 │   ├── loaders.py                 # load models / scaler / test set
 │   ├── features.py                # encode form → model input
-│   ├── charts.py                  # Plotly charts
-│   ├── styles.py                  # CSS
+│   ├── charts.py                  # Plotly charts (Model Insights tab)
+│   ├── styles.py                  # CSS (banner, stat row, risk meter)
 │   ├── sidebar.py                 # all sidebar inputs
 │   └── tabs/
-│       ├── predict.py             # prediction dashboard
-│       └── insights.py            # model comparison
+│       ├── predict.py             # Prediction Dashboard
+│       ├── insights.py            # Model Insights (metrics, ROC, confusion matrix)
+│       └── analysis.py            # Data Analysis (EDA gallery from results/eda/)
 ├── shared/
 │   ├── preprocessing.py           # STEP 1 — clean / encode / split (run once)
 │   ├── eda.py                     # EDA figures → results/eda/
 │   ├── eval_utils.py              # shared scoring helpers
 │   └── processed/                 # train/test CSVs + scaler + feature list
-├── member1_KNN/
-│   └── KNN.py                     # Member 1 — BASELINE (KNN)
-├── member2_logistic_regression/
-│   └── train_logistic_regression.py
-├── member3_random_forest/
-│   └── train_random_forest.py
-├── member4_decision_tree/
-│   └── train_decision_tree.py
+├── model_development/             # one script + one exploration notebook per model
+│   ├── KNN.py
+│   ├── KNN_exploration.ipynb
+│   ├── LogisticRegression.py
+│   ├── LogisticRegression_exploration.ipynb
+│   ├── RandomForest.py
+│   ├── RandomForest_exploration.ipynb
+│   ├── DecisionTree.py
+│   └── DecisionTree_Exploration.ipynb
 ├── results/
 │   ├── compare_models.py          # STEP 3 — pick best model by F1
 │   ├── eda/                       # charts for the report
 │   └── *_metrics.json / *.png
-└── models/                        # *.pkl + best_model.pkl
+└── models/                        # *.pkl + best_model.pkl + best_model_name.txt
 ```
 
 ## How to run (in order)
@@ -63,10 +64,10 @@ python shared/eda.py
 python shared/preprocessing.py
 
 # 3. Train each model (any order after step 2)
-python member1_KNN_baseline/KNN.py
-python member2_logistic_regression/LogisticRegression.py
-python member3_random_forest/RandomForest.py
-python member4_decision_tree/DecisionTree.py
+python model_development/KNN.py
+python model_development/LogisticRegression.py
+python model_development/RandomForest.py
+python model_development/DecisionTree.py
 
 # 4. Compare models and promote the winner
 python results/compare_models.py
@@ -79,12 +80,12 @@ python -m streamlit run app.py
 
 | Member | Model | Role | Script |
 |--------|-------|------|--------|
-| 1 | K-Nearest Neighbors | **Baseline** | `member1_KNN/KNN.py` |
-| 2 | Logistic Regression | Linear / interpretable | `member2_logistic_regression/train_logistic_regression.py` |
-| 3 | Random Forest | Bagging ensemble | `member3_random_forest/train_random_forest.py` |
-| 4 | Hist. Gradient Boosting | Boosting ensemble | `member4_gradient_boosting/train_gradient_boosting.py` |
+| 1 | K-Nearest Neighbors | **Baseline** | `model_development/KNN.py` |
+| 2 | Logistic Regression | Linear / interpretable | `model_development/LogisticRegression.py` |
+| 3 | Random Forest | Bagging ensemble | `model_development/RandomForest.py` |
+| 4 | Decision Tree | Tree-based / interpretable | `model_development/DecisionTree.py` |
 
-All models use **5-fold GridSearchCV** scored by **F1**, then evaluate once on the
+All models use **5-fold GridSearchCV**, then evaluate once on the
 held-out test set (accuracy, precision, recall, F1, ROC-AUC). The winner by F1
 is copied to `models/best_model.pkl` for the app default.
 
@@ -93,11 +94,15 @@ is copied to `models/best_model.pkl` for the app default.
 - **Sidebar** — all controls live here: model picker, Loyal / At-risk / Reset
   presets, full customer profile (demographics, services, billing), and
   **Predict churn**.
-- **Prediction Dashboard** — large CHURN / STAY banner, KPI cards, gauge +
-  donut charts, risk bar, recommended action, customer snapshot, and global
-  feature-importance chart (when the model supports it).
+- **Prediction Dashboard** — CHURN / STAY banner, a churn-probability stat row
+  (hero percentage, risk-level pill, decision), a horizontal risk meter with
+  LOW/MEDIUM/HIGH zones sized to the model's decision threshold, recommended
+  action, customer snapshot table, and two "why" panels (model-specific
+  driver breakdown + EDA-grounded risk-pattern match).
 - **Model Insights** — live metrics table, grouped bars, confusion matrix,
   and ROC curves recomputed from the shared test set for every `.pkl` in `models/`.
+- **Data Analysis** — the EDA gallery generated by `shared/eda.py`, grouped
+  to match the written report's sections.
 
 ## Assignment checklist (BMDS2003)
 
