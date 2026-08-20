@@ -44,15 +44,10 @@ def _render_empty_state() -> None:
         <div class="empty-state">
             <h3>No prediction yet</h3>
             <p>Use the <b>sidebar</b> to pick a model and customer profile,<br>
-            try a <b>Loyal</b> or <b>At-risk</b> example, then click
-            <b>Predict churn</b>.</p>
+            then click <b>Predict churn</b>.</p>
         </div>
         """,
         unsafe_allow_html=True,
-    )
-    st.info(
-        "Tip for demos: click **🔴 At-risk** in the sidebar → **Predict churn**, "
-        "then try **🟢 Loyal** and compare the dashboard."
     )
 
 
@@ -62,11 +57,11 @@ def _render_driver_list(drivers: list) -> None:
     during a demo than parsing a bar chart."""
     for d in drivers:
         if d["direction"] == "up":
-            icon, note = "🔺", "pushes risk UP"
+            icon, note = "↑", "pushes risk UP"
         elif d["direction"] == "down":
-            icon, note = "🔻", "pushes risk DOWN"
+            icon, note = "↓", "pushes risk DOWN"
         else:
-            icon, note = "🔹", "a factor the model weighs heavily"
+            icon, note = "·", "a factor the model weighs heavily"
         st.markdown(f"{icon} **{d['label']}** — {note}")
 
 
@@ -83,23 +78,15 @@ def _render_pattern_list(factors: list) -> None:
 def _render_result(result: dict, feature_columns) -> None:
     is_churn = result["prediction"] == 1
     banner_color = "#c0392b" if is_churn else "#1e8449"
-    banner_title = "⚠️ LIKELY TO CHURN" if is_churn else "✅ LIKELY TO STAY"
-    banner_sub = (
-        "This customer is predicted to leave the service."
-        if is_churn
-        else "This customer is predicted to remain with the company."
-    )
-
+    banner_title = "LIKELY TO CHURN" if is_churn else "LIKELY TO STAY"
     st.markdown(
         f"""
         <div class="result-banner"
              style="background: linear-gradient(135deg, {banner_color}, {banner_color}cc);">
             <h2>{banner_title}</h2>
-            <p>{banner_sub}</p>
             <p style="margin-top:0.55rem; font-size:0.95rem;">
                 Model: <b>{result['model']}</b> ·
-                Risk band: <b>{result['band']}</b> ·
-                Threshold: <b>{result['threshold']:.2f}</b>
+                Risk band: <b>{result['band']}</b>
             </p>
         </div>
         """,
@@ -112,7 +99,6 @@ def _render_result(result: dict, feature_columns) -> None:
     # read as a pill and an inline decision rather than repeating the same
     # boxed-card shell three times.
     pct = result["probability"] * 100
-    decision_icon = "⚠️" if is_churn else "✅"
     decision_word = "CHURN" if is_churn else "STAY"
 
     st.markdown(
@@ -133,21 +119,12 @@ def _render_result(result: dict, feature_columns) -> None:
             <div class="stat-cell">
                 <div class="stat-eyebrow">Decision</div>
                 <div class="stat-decision" style="--accent:{result['accent']}">
-                    {decision_icon} {decision_word}
+                    {decision_word}
                 </div>
                 <small style="color:#9ca3af; font-size:0.72rem;">
                     @ {result['threshold']:.2f} threshold
                 </small>
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        f"""
-        <div class="action-box">
-            <b>Recommended action</b><br>{result['action']}
         </div>
         """,
         unsafe_allow_html=True,
@@ -187,15 +164,11 @@ def _render_result(result: dict, feature_columns) -> None:
         """,
         unsafe_allow_html=True,
     )
-    st.caption(
-        f"Grey tick marks this model's decision threshold ({result['threshold']:.2f}). "
-        "Zone widths scale with the threshold, not fixed bands."
-    )
 
     # Snapshot + two "why" panels
     left, right = st.columns([1, 1.2])
     with left:
-        st.subheader("📋 Customer snapshot")
+        st.subheader("Customer snapshot")
         snap = pd.DataFrame(
             {
                 "Field": list(result["profile"].keys()),
@@ -204,10 +177,7 @@ def _render_result(result: dict, feature_columns) -> None:
         )
         st.dataframe(snap, use_container_width=True, hide_index=True)
 
-        st.subheader("🎯 Matches known risk patterns")
-        st.caption(
-            "From the project's EDA (Section 2.3/2.5) — same figures as the written report."
-        )
+        st.subheader("Matches known risk patterns")
         factors = compute_risk_factors(result["form"])
         if factors:
             _render_pattern_list(factors)
@@ -215,16 +185,13 @@ def _render_result(result: dict, feature_columns) -> None:
             st.info("No strong pattern matches for this profile.")
 
     with right:
-        st.subheader(f"🧭 Why {result['model']} made this call")
+        st.subheader(f"Why {result['model']} made this call")
         model = load_model(result["model"])
         drivers = get_top_drivers(
             model, result["model"], result["form"], result["input_df"], feature_columns
         )
         if drivers:
             _render_driver_list(drivers)
-            st.caption(
-                "Specific to this customer's actual answers, not a generic top-10."
-            )
         else:
             st.info(
                 f"**{result['model']}** does not expose per-feature drivers "

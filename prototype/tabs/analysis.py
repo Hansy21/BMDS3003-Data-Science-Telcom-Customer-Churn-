@@ -21,35 +21,35 @@ GROUPS = [
     {
         "title": "Churn Overview",
         "files": {
-            "01_churn_distribution.png": "Figure 1 — Churn Class Distribution "
+            "01_churn_distribution.png": "Churn Class Distribution "
             "(73.5% No Churn vs 26.5% Churn)",
         },
     },
     {
         "title": "Categorical Drivers of Churn",
         "files": {
-            "04_churn_rate_by_category.png": "Figure 2 — Churn Rate by "
+            "04_churn_rate_by_category.png": "Churn Rate by "
             "Contract Type, Internet Service, and Payment Method",
-            "11_churn_rate_payment_contract_heatmap.png": "Figure 6 — Churn "
+            "11_churn_rate_payment_contract_heatmap.png": "Churn "
             "Rate by Payment Method and Contract Type",
-            "05_contract_tenure_heatmap.png": "Figure 3 — Churn Rate by "
+            "05_contract_tenure_heatmap.png": "Churn Rate by "
             "Contract Type and Tenure Band",
-            "08_churn_rate_streaming.png": "Figure 9 — Churn Rate by "
+            "08_churn_rate_streaming.png": "Churn Rate by "
             "Streaming Services",
-            "09_churn_rate_protection_backup.png": "Figure 10 — Churn Rate "
+            "09_churn_rate_protection_backup.png": "Churn Rate "
             "by Device Protection and Online Backup",
-            "10_churn_rate_total_services.png": "Figure 8 — Churn Rate by "
+            "10_churn_rate_total_services.png": "Churn Rate by "
             "Number of Add-On Services Subscribed",
         },
     },
     {
         "title": "Numeric Relationships",
         "files": {
-            "06_correlation_heatmap.png": "Figure 4 — Correlation Heatmap "
+            "06_correlation_heatmap.png": "Correlation Heatmap "
             "of Numeric Features",
-            "02_numeric_by_churn.png": "Figure 5 — Distribution of Tenure, "
+            "02_numeric_by_churn.png": "Distribution of Tenure, "
             "Monthly Charges, and Total Charges by Churn Status",
-            "12_monthly_vs_total_scatter.png": "Figure 7 — Monthly Charges "
+            "12_monthly_vs_total_scatter.png": "Monthly Charges "
             "vs Total Charges by Churn Status",
         },
     },
@@ -125,7 +125,12 @@ def render_analysis_tab() -> None:
                     continue
 
                 with cols[col_idx]:
-                    st.image(path, caption=caption, use_container_width=True)
+                    # Add a clear, larger subtitle above the image (h4 size, ideal for presentations)
+                    st.markdown(f"<h4>{caption}</h4>", unsafe_allow_html=True)
+                    # Display the image without the small default caption
+                    st.image(path, use_container_width=True)
+                    # Add a visual gap after each diagram
+                    st.markdown("<br>", unsafe_allow_html=True)
 
         if missing:
             st.info(

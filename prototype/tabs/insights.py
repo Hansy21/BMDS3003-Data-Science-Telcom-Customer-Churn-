@@ -4,13 +4,17 @@ Model Insights tab — live metrics table, bar chart, confusion matrix, ROC.
 
 import pandas as pd
 import streamlit as st
-from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
+from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve, precision_recall_curve
+from sklearn.calibration import calibration_curve
 
 from prototype.charts import (
     make_confusion_heatmap,
     make_metrics_bar,
     make_roc_curve,
     make_roc_overlay,
+    make_pr_curve,
+    make_prob_dist,
+    make_calibration_curve,
 )
 from prototype.loaders import load_model, score_model
 
@@ -48,7 +52,7 @@ def render_insights_tab(
     display_df.insert(
         0,
         "Best",
-        display_df["model"].apply(lambda m: "⭐" if m == best_model_name else ""),
+        display_df["model"].apply(lambda m: "Best" if m == best_model_name else ""),
     )
     for col in ["accuracy", "precision", "recall", "f1", "roc_auc"]:
         display_df[col] = display_df[col].round(4)
@@ -81,20 +85,45 @@ def render_insights_tab(
     )
     y_pred, y_prob = preds[detail_model]
 
-    c1, c2 = st.columns(2)
-    with c1:
-        cm = confusion_matrix(y_test, y_pred)
-        st.plotly_chart(
-            make_confusion_heatmap(cm, detail_model),
-            use_container_width=True,
-        )
-    with c2:
-        fpr, tpr, _ = roc_curve(y_test, y_prob)
-        auc = roc_auc_score(y_test, y_prob)
-        st.plotly_chart(
-            make_roc_curve(fpr, tpr, detail_model, auc),
-            use_container_width=True,
-        )
+    cm = confusion_matrix(y_test, y_pred)
+    st.plotly_chart(
+        make_confusion_heatmap(cm, detail_model),
+        use_container_width=True,
+    )
+    
+    st.divider()
+
+    fpr, tpr, _ = roc_curve(y_test, y_prob)
+    auc = roc_auc_score(y_test, y_prob)
+    st.plotly_chart(
+        make_roc_curve(fpr, tpr, detail_model, auc),
+        use_container_width=True,
+    )
+
+    st.divider()
+
+    precisions, recalls, _ = precision_recall_curve(y_test, y_prob)
+    st.plotly_chart(
+        make_pr_curve(precisions, recalls, detail_model),
+        use_container_width=True,
+    )
+
+    st.divider()
+
+    st.plotly_chart(
+        make_prob_dist(y_test, y_prob, detail_model),
+        use_container_width=True,
+    )
+
+    st.divider()
+
+    prob_true, prob_pred = calibration_curve(y_test, y_prob, n_bins=10)
+    st.plotly_chart(
+        make_calibration_curve(prob_true, prob_pred, detail_model),
+        use_container_width=True,
+    )
+
+
 
     with st.expander("Compare ROC curves for every model at once"):
         st.plotly_chart(

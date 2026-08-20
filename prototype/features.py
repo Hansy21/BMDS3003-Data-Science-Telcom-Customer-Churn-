@@ -262,11 +262,11 @@ def compute_risk_factors(form_values: dict, top_n: int = 5) -> list[dict]:
             continue
         delta = rate - _OVERALL_CHURN_RATE
         if delta >= 8:
-            tag, icon = "risk", "⚠️"
+            tag, icon = "risk", "!"
         elif delta <= -8:
-            tag, icon = "protective", "✅"
+            tag, icon = "protective", "✓"
         else:
-            tag, icon = "neutral", "➖"
+            tag, icon = "neutral", "-"
         factors.append(
             {
                 "label": label,
@@ -291,7 +291,7 @@ def compute_risk_factors(form_values: dict, top_n: int = 5) -> list[dict]:
                 "rate": 51.4,
                 "delta": 51.4 - _OVERALL_CHURN_RATE,
                 "tag": "risk",
-                "icon": "⚠️",
+                "icon": "!",
             }
         )
     elif tenure >= 49:
@@ -302,7 +302,7 @@ def compute_risk_factors(form_values: dict, top_n: int = 5) -> list[dict]:
                 "rate": 12.0,
                 "delta": 12.0 - _OVERALL_CHURN_RATE,
                 "tag": "protective",
-                "icon": "✅",
+                "icon": "✓",
             }
         )
 

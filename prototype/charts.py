@@ -217,3 +217,46 @@ def make_roc_overlay(preds: dict, y_test):
         height=450,
     )
     return fig
+
+
+def make_pr_curve(precisions, recalls, model_name: str):
+    fig = go.Figure()
+    fig.add_scatter(x=recalls, y=precisions, mode="lines", name=model_name, line=dict(color="purple"))
+    fig.update_layout(
+        title=f"{model_name} — Precision-Recall Curve",
+        xaxis_title="Recall (True Positive Rate)",
+        yaxis_title="Precision",
+        height=380,
+    )
+    return fig
+
+
+def make_prob_dist(y_test, y_prob, model_name: str):
+    fig = go.Figure()
+    # Filter based on numpy arrays or pandas Series
+    mask_0 = (y_test == 0)
+    mask_1 = (y_test == 1)
+    
+    fig.add_trace(go.Histogram(x=y_prob[mask_0], name="Actual: No Churn", marker_color="green", opacity=0.5, histnorm='probability density', nbinsx=20))
+    fig.add_trace(go.Histogram(x=y_prob[mask_1], name="Actual: Churn", marker_color="red", opacity=0.5, histnorm='probability density', nbinsx=20))
+    fig.update_layout(
+        title=f"{model_name} — Probability Distribution",
+        xaxis_title="Predicted Probability of Churn",
+        yaxis_title="Density",
+        barmode='overlay',
+        height=380,
+    )
+    return fig
+
+
+def make_calibration_curve(prob_true, prob_pred, model_name: str):
+    fig = go.Figure()
+    fig.add_scatter(x=prob_pred, y=prob_true, mode="lines+markers", name=model_name, line=dict(color="darkorange", width=2), marker=dict(size=8))
+    fig.add_scatter(x=[0, 1], y=[0, 1], mode="lines", name="Perfectly Calibrated", line=dict(dash="dash", color="gray"))
+    fig.update_layout(
+        title=f"{model_name} — Calibration Curve",
+        xaxis_title="Mean Predicted Probability",
+        yaxis_title="Fraction of Positives (Actual Churn Rate)",
+        height=380,
+    )
+    return fig

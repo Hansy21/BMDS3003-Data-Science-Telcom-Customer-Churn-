@@ -28,7 +28,7 @@ def render_sidebar(model_names: list[str], best_model_name: str | None) -> dict:
         }
     """
     with st.sidebar:
-        st.header("⚙️ Controls")
+        st.header("Controls")
         st.caption("All inputs live here. Results appear on the main page.")
 
         # ── Model ──────────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ def render_sidebar(model_names: list[str], best_model_name: str | None) -> dict:
         threshold = load_model_threshold(model_name)
 
         if model_name == best_model_name:
-            st.success(f"⭐ Best by F1: **{model_name}**")
+            st.success(f"Best by F1: **{model_name}**")
         st.caption(f"Decision threshold: **{threshold:.2f}**")
 
         if has_test_set():
@@ -61,7 +61,7 @@ def render_sidebar(model_names: list[str], best_model_name: str | None) -> dict:
 
         # ── Quick examples ─────────────────────────────────────────────────
         st.divider()
-        st.subheader("⚡ Quick examples")
+        st.subheader("Quick examples")
         col_a, col_b = st.columns(2)
         with col_a:
             if st.button("🟢 Loyal", use_container_width=True):
@@ -73,6 +73,7 @@ def render_sidebar(model_names: list[str], best_model_name: str | None) -> dict:
                 apply_preset(AT_RISK)
                 st.session_state.last_prediction = None
                 st.rerun()
+        # Added a clean, functional UI icon for reset
         if st.button("↺ Reset form", use_container_width=True):
             apply_preset(DEFAULTS)
             st.session_state.last_prediction = None
@@ -80,7 +81,7 @@ def render_sidebar(model_names: list[str], best_model_name: str | None) -> dict:
 
         # ── Customer profile ───────────────────────────────────────────────
         st.divider()
-        st.subheader("👤 Customer profile")
+        st.subheader("Customer profile")
 
         with st.expander("Demographics", expanded=True):
             gender = st.selectbox("Gender", OPTIONS["gender"], key="gender")
@@ -151,7 +152,7 @@ def render_sidebar(model_names: list[str], best_model_name: str | None) -> dict:
 
         st.divider()
         predict_clicked = st.button(
-            "🔍 Predict churn",
+            "Predict churn",
             type="primary",
             use_container_width=True,
         )
