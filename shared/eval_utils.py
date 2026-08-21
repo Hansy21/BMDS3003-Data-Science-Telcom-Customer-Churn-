@@ -29,8 +29,10 @@ from sklearn.metrics import (
     confusion_matrix,
     ConfusionMatrixDisplay,
     roc_curve,
+    precision_recall_curve,
     classification_report,
 )
+from sklearn.calibration import calibration_curve
 
 # --- Standard project folders (relative to this file) ----------------------
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -134,6 +136,44 @@ def evaluate_and_save(
     plt.legend(loc="lower right")
     plt.tight_layout()
     plt.savefig(os.path.join(RESULTS_DIR, f"{model_name}_roc.png"), dpi=120)
+    plt.close()
+
+    # ── Precision-Recall curve image ────────────────────────────────────────
+    precisions, recalls, _ = precision_recall_curve(y_test, y_prob)
+    plt.figure(figsize=(6, 5))
+    plt.plot(recalls, precisions, linewidth=2, color="purple", label=f"{model_name}")
+    plt.xlabel("Recall (True Positive Rate)")
+    plt.ylabel("Precision")
+    plt.title(f"{model_name} — Precision-Recall Curve")
+    plt.legend(loc="lower left")
+    plt.tight_layout()
+    plt.savefig(os.path.join(RESULTS_DIR, f"{model_name}_prc.png"), dpi=120)
+    plt.close()
+
+    # ── Predicted Probability Distribution image ────────────────────────────
+    plt.figure(figsize=(7, 5))
+    # density=True normalizes the histogram so we can compare imbalanced classes
+    plt.hist(y_prob[y_test == 0], bins=20, alpha=0.5, label="Actual: No Churn", color="green", density=True)
+    plt.hist(y_prob[y_test == 1], bins=20, alpha=0.5, label="Actual: Churn", color="red", density=True)
+    plt.xlabel("Predicted Probability of Churn")
+    plt.ylabel("Density")
+    plt.title(f"{model_name} — Probability Distribution")
+    plt.legend(loc="upper center")
+    plt.tight_layout()
+    plt.savefig(os.path.join(RESULTS_DIR, f"{model_name}_prob_dist.png"), dpi=120)
+    plt.close()
+
+    # ── Calibration Curve (Reliability Diagram) ─────────────────────────────
+    prob_true, prob_pred = calibration_curve(y_test, y_prob, n_bins=10)
+    plt.figure(figsize=(6, 5))
+    plt.plot(prob_pred, prob_true, marker='o', linewidth=2, label=model_name, color="darkorange")
+    plt.plot([0, 1], [0, 1], 'k--', label="Perfectly Calibrated")
+    plt.xlabel("Mean Predicted Probability")
+    plt.ylabel("Fraction of Positives (Actual Churn Rate)")
+    plt.title(f"{model_name} — Calibration Curve")
+    plt.legend(loc="lower right")
+    plt.tight_layout()
+    plt.savefig(os.path.join(RESULTS_DIR, f"{model_name}_calibration.png"), dpi=120)
     plt.close()
 
     # ── Save the trained model ──────────────────────────────────────────────

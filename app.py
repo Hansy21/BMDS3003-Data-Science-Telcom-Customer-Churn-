@@ -64,14 +64,14 @@ if "last_prediction" not in st.session_state:
 # ---------------------------------------------------------------------------
 sidebar = render_sidebar(model_names, best_model_name)
 
-st.title("📡 Telco Customer Churn Predictor")
+st.title("Telco Customer Churn Predictor")
 st.caption(
     "BMDS2003 · CRISP-DM deployment prototype · "
     "Set customer details in the **sidebar**, then view results here."
 )
 
 predict_tab, insights_tab, analysis_tab = st.tabs(
-    ["🔮 Prediction Dashboard", "📊 Model Insights", "📈 Data Analysis"]
+    ["Prediction Dashboard", "Model Insights", "Data Analysis"]
 )
 
 with predict_tab:
