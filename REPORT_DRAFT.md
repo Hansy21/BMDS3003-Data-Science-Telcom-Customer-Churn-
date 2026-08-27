@@ -121,23 +121,40 @@ Even a modest improvement in early detection can protect monthly recurring reven
 
 ## 5. Data Preparation
 
-All members share one preprocessing pipeline (`shared/preprocessing.py`) so model comparison is fair.
+All members share one unified, modular preprocessing pipeline (`shared/preprocessing.py`) to guarantee methodologically sound, zero-leakage, and fair model evaluation under a standard **0.50 decision threshold**.
 
-| Step | Action | Rationale |
+### 5.1 Pipeline Steps
+
+| Step | Action | Business & Technical Rationale |
 | :--- | :--- | :--- |
-| 1 | Load CSV | Single integrated table |
-| 2 | `TotalCharges` → numeric; fill 11 NaNs with 0 | Correct type; new customers have no bill yet |
-| 3 | Drop `customerID` | Identifier only; not predictive |
-| 4 | Encode target `Churn` Yes→1, No→0 | Binary labels for sklearn |
-| 5 | Binary map for gender, Partner, Dependents, PhoneService, PaperlessBilling | Compact 0/1 encoding |
-| 6 | One-hot encode multi-category service/contract/payment columns | Avoid ordinal assumptions |
-| 7 | Stratified train/test split 80/20, `random_state=42` | Preserve churn rate; reproducibility |
-| 8 | `StandardScaler` on tenure, MonthlyCharges, TotalCharges **fit on train only** | Required for KNN/LogReg; avoid leakage |
-| 9 | Save `X_train/X_test/y_train/y_test`, `scaler.pkl`, `feature_columns.pkl` | Shared inputs + Streamlit inference |
+| 1 | Load CSV & Hygiene | Drop duplicate rows; remove arbitrary `customerID` identifier. |
+| 2 | Impute `TotalCharges` | Convert text to float; fill 11 blank values with `0.0` (customers with `tenure = 0` who have not yet received a bill). |
+| 3 | **Collinear Noise Pruning** | Collapse redundant `"No internet service"` / `"No phone service"` across all 6 service add-ons into `"No"` (0), eliminating 6 duplicate dummy columns that cause multicollinear variance. |
+| 4 | **Domain & Financial Feature Engineering** | Derive high-signal financial ratios (dispute gap, rate shock index, perceived cost per service) and behavioral risk/loyalty interaction flags. |
+| 5 | Encode Categoricals | Binary map 2-choice variables (0/1); one-hot encode `InternetService`, `Contract`, and `PaymentMethod` with `drop_first=True`. |
+| 6 | Stratified 80/20 Split | Partition data (`random_state=42`) with `stratify=y` to preserve the 73.5%/26.5% class balance in both training and test sets. |
+| 7 | Numerical Standardization | `StandardScaler` applied across all 12 continuous numerical features, **fit strictly on the training set** to prevent data leakage. |
+| 8 | Shared Artifact Export | Export `X_train.csv`, `X_test.csv`, `y_train.csv`, `y_test.csv`, `scaler.pkl`, `feature_columns.pkl`, and `num_cols.pkl` for model training and Streamlit inference. |
 
-**Final feature matrix:** 40 columns after encoding (see `shared/processed/`).
+### 5.2 Accuracy-Maximizing Domain Features & Financial Ratios
 
-**Outliers:** Numeric distributions were inspected via boxplots; extreme values of charges/tenure are plausible for real billing data and were **retained** (no aggressive trimming), to avoid distorting high-value or long-tenure customers.
+1. **`EffectivePaidMonths` & `UnpaidMonthDiff` (Billing Dispute / Account Pause Flag):**
+   $$\text{EffectivePaidMonths} = \frac{\text{TotalCharges}}{\text{MonthlyCharges} + 10^{-5}}, \quad \text{UnpaidMonthDiff} = \text{tenure} - \text{EffectivePaidMonths}$$
+   Discrepancies between tenure and actual billed months detect unrecorded billing credits, disputed charges, or account suspensions.
+2. **`ChargeRatio` & `ChargeDiscrepancy` (Promotional Rate Shock):**
+   $$\text{ChargeRatio} = \frac{\text{MonthlyCharges}}{\text{HistoricalAvgMonthly} + 1.0}, \quad \text{ChargeDiscrepancy} = \text{MonthlyCharges} - \frac{\text{TotalCharges}}{\text{tenure} + 1}$$
+   Detects sudden bill increases when promotional discounts expire.
+3. **`CostPerService` (Perceived Value Metric):**
+   $$\text{CostPerService} = \frac{\text{MonthlyCharges}}{\text{TotalServices} + 1}$$
+4. **`HighSpenderFiberNoContract`:** Identifies customers paying $\ge \text{RM } 75$/mo on Fiber optic without a long-term contract (the highest revenue-at-risk group).
+5. **`LoyalContractCustomer`:** Long-tenure customers ($\ge 24 \text{ months}$) on 1- or 2-year contracts (near 0% churn baseline).
+6. **`FiberWithoutSupport`:** Fiber optic subscribers lacking `TechSupport` (high frustration cohort).
+7. **`SeniorLivingAlone`:** Senior citizens living alone (vulnerable demographic with elevated churn).
+8. **`Is_AutoPay` & `Is_New_Customer_Risk`:** Frictionless billing and early onboarding hazard indicators.
+
+**Final feature matrix:** 40 features after noise pruning, financial ratio derivation, and encoding.
+
+
 
 ---
 

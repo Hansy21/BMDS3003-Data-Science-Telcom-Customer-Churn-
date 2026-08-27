@@ -58,6 +58,15 @@ def load_feature_columns():
     )[0]
 
 
+def load_num_cols():
+    return load_first_existing(
+        [
+            os.path.join(PROCESSED_DIR, "num_cols.pkl"),
+            os.path.join(MODELS_DIR, "num_cols.pkl"),
+        ]
+    )[0]
+
+
 def load_best_model_name():
     path = os.path.join(MODELS_DIR, "best_model_name.txt")
     if not os.path.exists(path):
