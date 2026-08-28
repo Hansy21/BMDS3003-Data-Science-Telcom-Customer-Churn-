@@ -13,6 +13,7 @@ from prototype.loaders import (
     load_model,
     load_model_threshold,
     load_test_set,
+    sample_random_customer,
 )
 
 
@@ -22,33 +23,55 @@ def render_sidebar(model_names: list[str], best_model_name: str | None) -> dict:
 
         {
           "model_name", "model", "threshold",
+          "selected_models", "all_models", "all_thresholds",
           "form",          # dict of all customer fields
           "predict_clicked",
           "X_test", "y_test", "has_test",
+          "random_customer_info",
         }
     """
     with st.sidebar:
         st.header("Controls")
-        st.caption("All inputs live here. Results appear on the main page.")
+        st.caption("Configure profile or load random sample, then predict.")
 
-        # ── Model ──────────────────────────────────────────────────────────
-        default_index = (
-            model_names.index(best_model_name)
-            if best_model_name in model_names
-            else 0
+        # ── Prediction Mode Selection ──────────────────────────────────────
+        mode = st.radio(
+            "Prediction Mode",
+            ["Single Model", "Compare All Models"],
+            horizontal=True,
+            help="Single Model allows picking a specific model; Compare All Models evaluates all 4 models together.",
         )
-        model_name = st.selectbox(
-            "Prediction model",
-            model_names,
-            index=default_index,
-            help="Every .pkl file in models/ appears here.",
-        )
-        model = load_model(model_name)
-        threshold = load_model_threshold(model_name)
 
-        if model_name == best_model_name:
-            st.success(f"Best by F1: **{model_name}**")
-        st.caption(f"Decision threshold: **{threshold:.2f}**")
+        if "current_mode" not in st.session_state:
+            st.session_state.current_mode = mode
+        elif st.session_state.current_mode != mode:
+            st.session_state.current_mode = mode
+            st.session_state.last_prediction = None
+
+        # ── Model Picker (only in Single Model mode) ──────────────────────
+        if mode == "Single Model":
+            default_index = (
+                model_names.index(best_model_name)
+                if best_model_name in model_names
+                else 0
+            )
+            model_name = st.selectbox(
+                "Select model to predict",
+                model_names,
+                index=default_index,
+                help="Choose which model to run.",
+            )
+            model = load_model(model_name)
+            threshold = load_model_threshold(model_name)
+
+            if model_name == best_model_name:
+                st.success(f"Best model by F1: **{model_name}**")
+            st.caption(f"Decision threshold: **{threshold:.2f}**")
+        else:
+            model_name = best_model_name if best_model_name in model_names else model_names[0]
+            model = None
+            threshold = None
+            st.info("⚡ Comparing all 4 models: **DecisionTree**, **KNN**, **LogisticRegression**, **RandomForest**.")
 
         if has_test_set():
             X_test, y_test = load_test_set()
@@ -61,23 +84,39 @@ def render_sidebar(model_names: list[str], best_model_name: str | None) -> dict:
 
         # ── Quick examples ─────────────────────────────────────────────────
         st.divider()
-        st.subheader("Quick examples")
+        st.subheader("Quick profiles & data input")
         col_a, col_b = st.columns(2)
         with col_a:
             if st.button("🟢 Loyal", use_container_width=True):
                 apply_preset(LOYAL)
                 st.session_state.last_prediction = None
+                st.session_state.random_customer_info = None
                 st.rerun()
         with col_b:
             if st.button("🔴 At-risk", use_container_width=True):
                 apply_preset(AT_RISK)
                 st.session_state.last_prediction = None
+                st.session_state.random_customer_info = None
                 st.rerun()
-        # Added a clean, functional UI icon for reset
-        if st.button("↺ Reset form", use_container_width=True):
-            apply_preset(DEFAULTS)
-            st.session_state.last_prediction = None
-            st.rerun()
+
+        col_c, col_d = st.columns(2)
+        with col_c:
+            if st.button("🎲 Random Sample", use_container_width=True, help="Sample a random customer from Telco_Cusomer_Churn.csv"):
+                sampled_form, cust_id, actual_churn = sample_random_customer()
+                if sampled_form:
+                    apply_preset(sampled_form)
+                    st.session_state.random_customer_info = {
+                        "customer_id": cust_id,
+                        "actual_churn": actual_churn,
+                    }
+                    st.session_state.last_prediction = None
+                    st.rerun()
+        with col_d:
+            if st.button("↺ Reset form", use_container_width=True):
+                apply_preset(DEFAULTS)
+                st.session_state.last_prediction = None
+                st.session_state.random_customer_info = None
+                st.rerun()
 
         # ── Customer profile ───────────────────────────────────────────────
         st.divider()
@@ -179,13 +218,29 @@ def render_sidebar(model_names: list[str], best_model_name: str | None) -> dict:
         "total_charges": total_charges,
     }
 
+    # Build models mapping based on mode
+    if mode == "Compare All Models":
+        selected_models = model_names
+    else:
+        selected_models = [model_name]
+
+    all_models = {name: load_model(name) for name in selected_models}
+    all_thresholds = {name: load_model_threshold(name) for name in selected_models}
+
     return {
+        "mode": mode,
         "model_name": model_name,
         "model": model,
         "threshold": threshold,
+        "selected_models": selected_models,
+        "all_models": all_models,
+        "all_thresholds": all_thresholds,
+        "all_model_names": model_names,
+        "best_model_name": best_model_name,
         "form": form,
         "predict_clicked": predict_clicked,
         "X_test": X_test,
         "y_test": y_test,
         "has_test": test_ok,
+        "random_customer_info": st.session_state.get("random_customer_info"),
     }

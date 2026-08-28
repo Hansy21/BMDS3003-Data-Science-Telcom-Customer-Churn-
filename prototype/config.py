@@ -11,6 +11,7 @@ MODELS_DIR = "models"
 RESULTS_DIR = "results"
 PROCESSED_DIR = os.path.join("shared", "processed")
 EDA_DIR = os.path.join("results", "eda")
+RAW_CSV_PATH = "Telco_Cusomer_Churn.csv"
 
 # Files that are not trained member models
 NON_MODEL_PICKLES = ("best_model.pkl", "scaler.pkl", "feature_columns.pkl", "num_cols.pkl")

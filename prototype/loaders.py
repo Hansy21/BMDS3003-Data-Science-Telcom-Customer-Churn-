@@ -23,8 +23,10 @@ from prototype.config import (
     MODELS_DIR,
     NON_MODEL_PICKLES,
     PROCESSED_DIR,
+    RAW_CSV_PATH,
     RESULTS_DIR,
 )
+from prototype.features import convert_dataset_row_to_form
 
 
 def load_pickle(path: str):
@@ -152,3 +154,30 @@ def score_model(name: str, _model, X_test, y_test):
             "roc_auc": roc_auc_score(y_test, y_prob),
         }
     return y_pred, y_prob, metrics
+
+
+@st.cache_data
+def load_raw_dataset() -> pd.DataFrame:
+    """Load the raw dataset for random customer sampling."""
+    paths = [
+        RAW_CSV_PATH,
+        os.path.join("..", RAW_CSV_PATH),
+        os.path.join(os.path.dirname(__file__), "..", RAW_CSV_PATH),
+    ]
+    for p in paths:
+        if os.path.exists(p):
+            return pd.read_csv(p)
+    return pd.DataFrame()
+
+
+def sample_random_customer():
+    """Pick a random customer from the dataset and return form values + metadata."""
+    df = load_raw_dataset()
+    if df.empty:
+        return None, None, None
+    row = df.sample(1).iloc[0]
+    form_dict = convert_dataset_row_to_form(row)
+    cust_id = str(row.get("customerID", "Unknown"))
+    actual_churn = str(row.get("Churn", "Unknown"))
+    return form_dict, cust_id, actual_churn
+

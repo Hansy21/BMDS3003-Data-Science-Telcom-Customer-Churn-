@@ -167,6 +167,102 @@ def get_top_drivers(
     return None
 
 
+def convert_dataset_row_to_form(row: pd.Series) -> dict:
+    """Convert a row from the raw Telco dataset into a valid sidebar form dict."""
+    def _val(col, default=""):
+        return str(row[col]).strip() if col in row and pd.notna(row[col]) else default
+
+    gender = _val("gender", "Female")
+    if gender not in ["Male", "Female"]:
+        gender = "Female"
+
+    sc = row.get("SeniorCitizen", 0)
+    senior_citizen = "Yes" if sc in [1, "1", True, "Yes"] else "No"
+
+    partner = "Yes" if _val("Partner") == "Yes" else "No"
+    dependents = "Yes" if _val("Dependents") == "Yes" else "No"
+    phone_service = "Yes" if _val("PhoneService") == "Yes" else "No"
+    paperless_billing = "Yes" if _val("PaperlessBilling") == "Yes" else "No"
+
+    multiple_lines = _val("MultipleLines", "No")
+    if multiple_lines not in ["No", "Yes", "No phone service"]:
+        multiple_lines = "No"
+
+    internet_service = _val("InternetService", "DSL")
+    if internet_service not in ["DSL", "Fiber optic", "No"]:
+        internet_service = "DSL"
+
+    def _clean_addon(col):
+        v = _val(col, "No")
+        if v in ["No", "Yes", "No internet service"]:
+            return v
+        return "No"
+
+    online_security = _clean_addon("OnlineSecurity")
+    online_backup = _clean_addon("OnlineBackup")
+    device_protection = _clean_addon("DeviceProtection")
+    tech_support = _clean_addon("TechSupport")
+    streaming_tv = _clean_addon("StreamingTV")
+    streaming_movies = _clean_addon("StreamingMovies")
+
+    contract = _val("Contract", "Month-to-month")
+    if contract not in ["Month-to-month", "One year", "Two year"]:
+        contract = "Month-to-month"
+
+    payment_method = _val("PaymentMethod", "Electronic check")
+    if payment_method not in [
+        "Electronic check",
+        "Mailed check",
+        "Bank transfer (automatic)",
+        "Credit card (automatic)",
+    ]:
+        payment_method = "Electronic check"
+
+    try:
+        tenure = int(round(float(row.get("tenure", 12))))
+        tenure = max(0, min(72, tenure))
+    except (ValueError, TypeError):
+        tenure = 12
+
+    try:
+        monthly_charges = float(row.get("MonthlyCharges", 65.0))
+        monthly_charges = max(20.0, min(120.0, monthly_charges))
+    except (ValueError, TypeError):
+        monthly_charges = 65.0
+
+    try:
+        total_raw = row.get("TotalCharges")
+        if pd.isna(total_raw) or str(total_raw).strip() == "":
+            total_charges = monthly_charges * tenure
+        else:
+            total_charges = float(total_raw)
+        total_charges = max(0.0, min(9000.0, total_charges))
+    except (ValueError, TypeError):
+        total_charges = monthly_charges * tenure
+
+    return {
+        "gender": gender,
+        "senior_citizen": senior_citizen,
+        "partner": partner,
+        "dependents": dependents,
+        "tenure": tenure,
+        "phone_service": phone_service,
+        "multiple_lines": multiple_lines,
+        "internet_service": internet_service,
+        "online_security": online_security,
+        "online_backup": online_backup,
+        "device_protection": device_protection,
+        "tech_support": tech_support,
+        "streaming_tv": streaming_tv,
+        "streaming_movies": streaming_movies,
+        "contract": contract,
+        "paperless_billing": paperless_billing,
+        "payment_method": payment_method,
+        "monthly_charges": round(monthly_charges, 2),
+        "total_charges": round(total_charges, 2),
+    }
+
+
 def apply_preset(preset: dict) -> None:
     """Copy a preset dict into session_state keys used by sidebar widgets."""
     for key, value in preset.items():
