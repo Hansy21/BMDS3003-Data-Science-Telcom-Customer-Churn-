@@ -260,3 +260,128 @@ def make_calibration_curve(prob_true, prob_pred, model_name: str):
         height=380,
     )
     return fig
+
+
+def make_multimodel_prob_comparison_chart(model_results: dict, baseline: float = 26.5):
+    """Horizontal bar chart comparing churn probabilities across all selected models.
+    Thresholds are shown as vertical lines (not symbols). Dataset baseline removed.
+    """
+    display_names_map = {
+        "DecisionTree": "Decision Tree",
+        "KNN": "KNN (Nearest Neighbours)",
+        "LogisticRegression": "Logistic Regression",
+        "RandomForest": "Random Forest",
+    }
+
+    raw_names = list(model_results.keys())
+    names = [display_names_map.get(m, m) for m in raw_names]
+    probs = [model_results[m]["probability"] * 100 for m in raw_names]
+    colors = [model_results[m]["accent"] for m in raw_names]
+    thresholds = [model_results[m]["threshold"] * 100 for m in raw_names]
+    bands = [model_results[m]["band"] for m in raw_names]
+    preds = [
+        "CHURN" if model_results[m]["prediction"] == 1 else "STAY" for m in raw_names
+    ]
+
+    # Adaptive label placement
+    labels = []
+    text_positions = []
+    text_colors = []
+    for p, pred, c in zip(probs, preds, colors):
+        if p >= 35.0:
+            labels.append(f"<b>{p:.1f}%</b> · <b>{pred}</b>")
+            text_positions.append("inside")
+            text_colors.append("#ffffff")
+        else:
+            labels.append(f"<b>{p:.1f}%</b> · <b>{pred}</b>")
+            text_positions.append("outside")
+            text_colors.append("#1e293b")
+
+    names_rev = names[::-1]
+    probs_rev = probs[::-1]
+    colors_rev = colors[::-1]
+    labels_rev = labels[::-1]
+    text_positions_rev = text_positions[::-1]
+    text_colors_rev = text_colors[::-1]
+    thresholds_rev = thresholds[::-1]
+    bands_rev = bands[::-1]
+    preds_rev = preds[::-1]
+
+    fig = go.Figure()
+
+    # 1. Main Horizontal Bars
+    fig.add_trace(
+        go.Bar(
+            x=probs_rev,
+            y=names_rev,
+            orientation="h",
+            marker=dict(
+                color=colors_rev,
+                line=dict(color="rgba(0,0,0,0.18)", width=1.5),
+            ),
+            text=labels_rev,
+            textposition=text_positions_rev,
+            textfont=dict(size=13, color=text_colors_rev, family="Arial, sans-serif"),
+            cliponaxis=False,
+            customdata=list(zip(thresholds_rev, bands_rev, preds_rev, probs_rev)),
+            hovertemplate=(
+                "<b>%{y}</b><br>"
+                + "Churn Probability: <b>%{customdata[3]:.1f}%</b><br>"
+                + "Model Decision: <b>%{customdata[2]}</b> (Threshold: %{customdata[0]:.1f}%)<br>"
+                + "Risk Band: <b>%{customdata[1]}</b>"
+                + "<extra></extra>"
+            ),
+            showlegend=False,
+        )
+    )
+
+    # 2. Threshold Lines — one vertical line per unique threshold value
+    unique_thresholds = sorted(set(thresholds))
+    for thr in unique_thresholds:
+        # Collect model names that share this threshold
+        models_at_thr = [n for n, t in zip(names, thresholds) if t == thr]
+        label = ", ".join(models_at_thr)
+        fig.add_vline(
+            x=thr,
+            line_dash="dot",
+            line_color="#0f172a",
+            line_width=2.5,
+            annotation_text=f"Threshold: {thr:.0f}%",
+            annotation_position="top left",
+            annotation_font=dict(size=10, color="#0f172a", family="Arial, sans-serif"),
+        )
+
+    chart_height = max(280, len(names) * 65 + 90)
+    fig.update_layout(
+        title=dict(
+            text="<b>Model Churn Probability Comparison</b> (┊ = Decision Threshold)",
+            font=dict(size=15, color="#0f172a"),
+            x=0.01,
+        ),
+        xaxis=dict(
+            range=[0, 108],
+            title=dict(
+                text="Predicted Churn Probability (%)",
+                font=dict(size=12, color="#475569"),
+            ),
+            ticksuffix="%",
+            dtick=20,
+            gridcolor="#e2e8f0",
+            gridwidth=1,
+            zeroline=True,
+            zerolinecolor="#cbd5e1",
+        ),
+        yaxis=dict(
+            autorange=True,
+            tickfont=dict(size=13, color="#0f172a", family="Arial, sans-serif"),
+            showgrid=False,
+        ),
+        bargap=0.35,
+        height=chart_height,
+        margin=dict(t=55, b=45, l=190, r=30),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="#f8fafc",
+        showlegend=False,
+    )
+    return fig
+

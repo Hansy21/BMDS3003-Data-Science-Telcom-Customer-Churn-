@@ -43,6 +43,57 @@ def humanize_feature(col_name: str, form_values: dict) -> str:
         return f"Phone Service: {form_values['phone_service']}"
     if col_name == "PaperlessBilling":
         return f"Paperless Billing: {form_values['paperless_billing']}"
+    if col_name == "MultipleLines":
+        return f"Multiple Lines: {form_values['multiple_lines']}"
+    if col_name == "OnlineSecurity":
+        return f"Online Security: {form_values['online_security']}"
+    if col_name == "OnlineBackup":
+        return f"Online Backup: {form_values['online_backup']}"
+    if col_name == "DeviceProtection":
+        return f"Device Protection: {form_values['device_protection']}"
+    if col_name == "TechSupport":
+        return f"Tech Support: {form_values['tech_support']}"
+    if col_name == "StreamingTV":
+        return f"Streaming TV: {form_values['streaming_tv']}"
+    if col_name == "StreamingMovies":
+        return f"Streaming Movies: {form_values['streaming_movies']}"
+    if col_name == "Is_AutoPay":
+        is_auto = "automatic" in form_values.get("payment_method", "").lower()
+        return f"Payment Method: {'Automatic Auto-Pay' if is_auto else 'Manual Friction'}"
+    if col_name == "Is_New_Customer_Risk":
+        is_risk = form_values.get("tenure", 0) <= 6 and form_values.get("contract") == "Month-to-month"
+        return f"Onboarding Risk: {'High Risk (<=6m M-to-M)' if is_risk else 'Standard'}"
+    if col_name == "HighSpenderFiberNoContract":
+        return "High-Spender Fiber on Month-to-Month"
+    if col_name == "LoyalContractCustomer":
+        return "Long-Term Contract Anchor (>=24m)"
+    if col_name == "FiberWithoutSupport":
+        return "Fiber Optic without Tech Support"
+    if col_name == "SeniorLivingAlone":
+        return "Senior Living Alone (Vulnerable Cohort)"
+    if col_name == "HasFamilyPlan":
+        is_fam = form_values.get("partner") == "Yes" and form_values.get("dependents") == "Yes"
+        return f"Family Account Bundle: {'Yes' if is_fam else 'No'}"
+    if col_name == "TotalServices":
+        return "Total Subscribed Services"
+    if col_name == "SecuritySupportScore":
+        return "Security & Tech Support Protection (0-4)"
+    if col_name == "CostPerService":
+        return "Cost Per Subscribed Service"
+    if col_name == "HistoricalAvgMonthly":
+        return "Historical Avg Monthly Spend"
+    if col_name == "ChargeDiscrepancy":
+        return "Bill Discrepancy (Current vs Avg)"
+    if col_name == "ChargeRatio":
+        return "Rate Shock Ratio (Current / Avg)"
+    if col_name == "EffectivePaidMonths":
+        return "Effective Reconstructed Paid Months"
+    if col_name == "UnpaidMonthDiff":
+        return "Billing Dispute / Unpaid Gap"
+    if col_name == "IsStreamingLover":
+        return "Full Streaming Entertainment Bundle"
+    if col_name == "LogTotalCharges":
+        return f"Log Total Charges: RM {form_values['total_charges']:.2f}"
     if "_" in col_name:
         prefix, _, suffix = col_name.partition("_")
         label = _READABLE_PREFIX.get(prefix, prefix)
@@ -116,6 +167,102 @@ def get_top_drivers(
     return None
 
 
+def convert_dataset_row_to_form(row: pd.Series) -> dict:
+    """Convert a row from the raw Telco dataset into a valid sidebar form dict."""
+    def _val(col, default=""):
+        return str(row[col]).strip() if col in row and pd.notna(row[col]) else default
+
+    gender = _val("gender", "Female")
+    if gender not in ["Male", "Female"]:
+        gender = "Female"
+
+    sc = row.get("SeniorCitizen", 0)
+    senior_citizen = "Yes" if sc in [1, "1", True, "Yes"] else "No"
+
+    partner = "Yes" if _val("Partner") == "Yes" else "No"
+    dependents = "Yes" if _val("Dependents") == "Yes" else "No"
+    phone_service = "Yes" if _val("PhoneService") == "Yes" else "No"
+    paperless_billing = "Yes" if _val("PaperlessBilling") == "Yes" else "No"
+
+    multiple_lines = _val("MultipleLines", "No")
+    if multiple_lines not in ["No", "Yes", "No phone service"]:
+        multiple_lines = "No"
+
+    internet_service = _val("InternetService", "DSL")
+    if internet_service not in ["DSL", "Fiber optic", "No"]:
+        internet_service = "DSL"
+
+    def _clean_addon(col):
+        v = _val(col, "No")
+        if v in ["No", "Yes", "No internet service"]:
+            return v
+        return "No"
+
+    online_security = _clean_addon("OnlineSecurity")
+    online_backup = _clean_addon("OnlineBackup")
+    device_protection = _clean_addon("DeviceProtection")
+    tech_support = _clean_addon("TechSupport")
+    streaming_tv = _clean_addon("StreamingTV")
+    streaming_movies = _clean_addon("StreamingMovies")
+
+    contract = _val("Contract", "Month-to-month")
+    if contract not in ["Month-to-month", "One year", "Two year"]:
+        contract = "Month-to-month"
+
+    payment_method = _val("PaymentMethod", "Electronic check")
+    if payment_method not in [
+        "Electronic check",
+        "Mailed check",
+        "Bank transfer (automatic)",
+        "Credit card (automatic)",
+    ]:
+        payment_method = "Electronic check"
+
+    try:
+        tenure = int(round(float(row.get("tenure", 12))))
+        tenure = max(0, min(72, tenure))
+    except (ValueError, TypeError):
+        tenure = 12
+
+    try:
+        monthly_charges = float(row.get("MonthlyCharges", 65.0))
+        monthly_charges = max(20.0, min(120.0, monthly_charges))
+    except (ValueError, TypeError):
+        monthly_charges = 65.0
+
+    try:
+        total_raw = row.get("TotalCharges")
+        if pd.isna(total_raw) or str(total_raw).strip() == "":
+            total_charges = monthly_charges * tenure
+        else:
+            total_charges = float(total_raw)
+        total_charges = max(0.0, min(9000.0, total_charges))
+    except (ValueError, TypeError):
+        total_charges = monthly_charges * tenure
+
+    return {
+        "gender": gender,
+        "senior_citizen": senior_citizen,
+        "partner": partner,
+        "dependents": dependents,
+        "tenure": tenure,
+        "phone_service": phone_service,
+        "multiple_lines": multiple_lines,
+        "internet_service": internet_service,
+        "online_security": online_security,
+        "online_backup": online_backup,
+        "device_protection": device_protection,
+        "tech_support": tech_support,
+        "streaming_tv": streaming_tv,
+        "streaming_movies": streaming_movies,
+        "contract": contract,
+        "paperless_billing": paperless_billing,
+        "payment_method": payment_method,
+        "monthly_charges": round(monthly_charges, 2),
+        "total_charges": round(total_charges, 2),
+    }
+
+
 def apply_preset(preset: dict) -> None:
     """Copy a preset dict into session_state keys used by sidebar widgets."""
     for key, value in preset.items():
@@ -151,31 +298,98 @@ def risk_band(probability: float, threshold: float):
 def build_input_dataframe(form_values: dict, feature_columns, scaler):
     """
     Encode sidebar form values the same way as shared/preprocessing.py,
-    then scale tenure / MonthlyCharges / TotalCharges with the saved scaler.
+    engineer domain features & business rules, then scale numeric columns.
     """
+    tenure = float(form_values["tenure"])
+    monthly_charges = float(form_values["monthly_charges"])
+    total_charges = float(form_values["total_charges"])
+    contract = form_values["contract"]
+    payment_method = form_values["payment_method"]
+    internet_service = form_values["internet_service"]
+    partner = form_values["partner"]
+    dependents = form_values["dependents"]
+    phone_service = form_values["phone_service"]
+    multiple_lines = form_values["multiple_lines"]
+    online_security = form_values["online_security"]
+    online_backup = form_values["online_backup"]
+    device_protection = form_values["device_protection"]
+    tech_support = form_values["tech_support"]
+    streaming_tv = form_values["streaming_tv"]
+    streaming_movies = form_values["streaming_movies"]
+
+    # Count total active subscribed services (0 to 8)
+    service_vals = [
+        phone_service,
+        multiple_lines,
+        online_security,
+        online_backup,
+        device_protection,
+        tech_support,
+        streaming_tv,
+        streaming_movies,
+    ]
+    total_services = sum(1 for v in service_vals if v == "Yes")
+
+    sec_vals = [online_security, online_backup, device_protection, tech_support]
+    security_support_score = sum(1 for v in sec_vals if v == "Yes")
+
+    cost_per_service = monthly_charges / (total_services + 1)
+    hist_avg_monthly = total_charges / (tenure + 1)
+    charge_discrepancy = monthly_charges - hist_avg_monthly
+    charge_ratio = monthly_charges / (hist_avg_monthly + 1.0)
+    effective_paid_months = total_charges / (monthly_charges + 1e-5)
+    unpaid_month_diff = tenure - effective_paid_months
+    is_streaming_lover = 1 if (streaming_tv == "Yes" and streaming_movies == "Yes") else 0
+    is_autopay = 1 if "automatic" in payment_method.lower() else 0
+    is_new_customer_risk = 1 if (tenure <= 6 and contract == "Month-to-month") else 0
+    high_spender_fiber_no_contract = 1 if (monthly_charges >= 75 and internet_service == "Fiber optic" and contract == "Month-to-month") else 0
+    loyal_contract_customer = 1 if (tenure >= 24 and contract != "Month-to-month") else 0
+    fiber_without_support = 1 if (internet_service == "Fiber optic" and tech_support == "No") else 0
+    senior_living_alone = 1 if (form_values["senior_citizen"] == "Yes" and partner == "No" and dependents == "No") else 0
+    has_family_plan = 1 if (partner == "Yes" and dependents == "Yes") else 0
+    log_total_charges = np.log1p(total_charges)
+
     input_data = {
         "gender": 1 if form_values["gender"] == "Male" else 0,
         "SeniorCitizen": 1 if form_values["senior_citizen"] == "Yes" else 0,
-        "Partner": 1 if form_values["partner"] == "Yes" else 0,
-        "Dependents": 1 if form_values["dependents"] == "Yes" else 0,
-        "tenure": form_values["tenure"],
-        "PhoneService": 1 if form_values["phone_service"] == "Yes" else 0,
+        "Partner": 1 if partner == "Yes" else 0,
+        "Dependents": 1 if dependents == "Yes" else 0,
+        "tenure": tenure,
+        "PhoneService": 1 if phone_service == "Yes" else 0,
         "PaperlessBilling": 1 if form_values["paperless_billing"] == "Yes" else 0,
-        "MonthlyCharges": form_values["monthly_charges"],
-        "TotalCharges": form_values["total_charges"],
+        "MonthlyCharges": monthly_charges,
+        "TotalCharges": total_charges,
+        "MultipleLines": 1 if multiple_lines == "Yes" else 0,
+        "OnlineSecurity": 1 if online_security == "Yes" else 0,
+        "OnlineBackup": 1 if online_backup == "Yes" else 0,
+        "DeviceProtection": 1 if device_protection == "Yes" else 0,
+        "TechSupport": 1 if tech_support == "Yes" else 0,
+        "StreamingTV": 1 if streaming_tv == "Yes" else 0,
+        "StreamingMovies": 1 if streaming_movies == "Yes" else 0,
+        # Engineered domain features & financial ratios
+        "Is_AutoPay": is_autopay,
+        "TotalServices": total_services,
+        "SecuritySupportScore": security_support_score,
+        "HasFamilyPlan": has_family_plan,
+        "HistoricalAvgMonthly": hist_avg_monthly,
+        "ChargeDiscrepancy": charge_discrepancy,
+        "CostPerService": cost_per_service,
+        "ChargeRatio": charge_ratio,
+        "EffectivePaidMonths": effective_paid_months,
+        "UnpaidMonthDiff": unpaid_month_diff,
+        "LogTotalCharges": log_total_charges,
+        "Is_New_Customer_Risk": is_new_customer_risk,
+        "HighSpenderFiberNoContract": high_spender_fiber_no_contract,
+        "LoyalContractCustomer": loyal_contract_customer,
+        "FiberWithoutSupport": fiber_without_support,
+        "SeniorLivingAlone": senior_living_alone,
+        "IsStreamingLover": is_streaming_lover,
     }
 
     multi_value_cols = {
-        "MultipleLines": form_values["multiple_lines"],
-        "InternetService": form_values["internet_service"],
-        "OnlineSecurity": form_values["online_security"],
-        "OnlineBackup": form_values["online_backup"],
-        "DeviceProtection": form_values["device_protection"],
-        "TechSupport": form_values["tech_support"],
-        "StreamingTV": form_values["streaming_tv"],
-        "StreamingMovies": form_values["streaming_movies"],
-        "Contract": form_values["contract"],
-        "PaymentMethod": form_values["payment_method"],
+        "InternetService": internet_service,
+        "Contract": contract,
+        "PaymentMethod": payment_method,
     }
     for col, value in multi_value_cols.items():
         for cat in feature_columns:
@@ -183,10 +397,26 @@ def build_input_dataframe(form_values: dict, feature_columns, scaler):
                 input_data[cat] = 1 if cat == f"{col}_{value}" else 0
 
     input_df = pd.DataFrame([input_data]).reindex(columns=feature_columns, fill_value=0)
-    input_df[["tenure", "MonthlyCharges", "TotalCharges"]] = scaler.transform(
-        input_df[["tenure", "MonthlyCharges", "TotalCharges"]]
-    )
+
+    num_cols = [
+        "tenure",
+        "MonthlyCharges",
+        "TotalCharges",
+        "CostPerService",
+        "HistoricalAvgMonthly",
+        "ChargeDiscrepancy",
+        "ChargeRatio",
+        "EffectivePaidMonths",
+        "UnpaidMonthDiff",
+        "TotalServices",
+        "SecuritySupportScore",
+        "LogTotalCharges",
+    ]
+    cols_to_scale = [c for c in num_cols if c in input_df.columns]
+    input_df[cols_to_scale] = scaler.transform(input_df[cols_to_scale])
     return input_df.astype(float)
+
+
 
 
 def profile_summary(form_values: dict) -> dict:
