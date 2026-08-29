@@ -124,9 +124,17 @@ def render_analysis_tab() -> None:
                     missing.append(filename)
                     continue
 
+                stagger_idx = (col_idx % 4) + 1
                 with cols[col_idx]:
-                    # Add a clear, larger subtitle above the image (h4 size, ideal for presentations)
-                    st.markdown(f"<h4>{caption}</h4>", unsafe_allow_html=True)
+                    # Add a presentation card with smooth hover lift and entrance animation
+                    st.markdown(
+                        f"""
+                        <div class="eda-card anim-fade-in anim-stagger-{stagger_idx}">
+                            <h4>{caption}</h4>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
                     # Display the image without the small default caption
                     st.image(path, use_container_width=True)
                     # Add a visual gap after each diagram

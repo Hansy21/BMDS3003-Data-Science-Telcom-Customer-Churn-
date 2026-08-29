@@ -28,6 +28,7 @@ def render_insights_tab(
     y_test,
 ) -> None:
     """Entry point called from app.py inside the Model Insights tab."""
+    st.markdown('<div class="anim-fade-in">', unsafe_allow_html=True)
     st.subheader("How each model performs on the held-out test set")
 
     if not has_test:
@@ -35,6 +36,7 @@ def render_insights_tab(
             "shared/processed/X_test.csv not found. Run "
             "`python shared/preprocessing.py` first, then reload this app."
         )
+        st.markdown('</div>', unsafe_allow_html=True)
         return
 
     with st.spinner("Scoring every trained model on the test set..."):
@@ -123,10 +125,9 @@ def render_insights_tab(
         use_container_width=True,
     )
 
-
-
     with st.expander("Compare ROC curves for every model at once"):
         st.plotly_chart(
             make_roc_overlay(preds, y_test),
             use_container_width=True,
         )
+    st.markdown('</div>', unsafe_allow_html=True)

@@ -4,6 +4,7 @@ Sidebar UI: model picker, quick presets, full customer form, Predict button.
 Returns a dict of selections so the main page can run predictions.
 """
 
+import time
 import streamlit as st
 
 from prototype.config import AT_RISK, DEFAULTS, LOYAL, OPTIONS
@@ -45,8 +46,13 @@ def render_sidebar(model_names: list[str], best_model_name: str | None) -> dict:
         if "current_mode" not in st.session_state:
             st.session_state.current_mode = mode
         elif st.session_state.current_mode != mode:
+            if st.session_state.get("last_prediction"):
+                st.session_state.trigger_exit = True
+            else:
+                with st.spinner(f"Switching to {mode}..."):
+                    time.sleep(0.8)
             st.session_state.current_mode = mode
-            st.session_state.last_prediction = None
+            st.rerun()
 
         # ── Model Picker (only in Single Model mode) ──────────────────────
         if mode == "Single Model":
@@ -85,23 +91,69 @@ def render_sidebar(model_names: list[str], best_model_name: str | None) -> dict:
         # ── Quick examples ─────────────────────────────────────────────────
         st.divider()
         st.subheader("Quick profiles & data input")
+
+        # Visual feedback if preset or sample was applied
+        if "preset_applied" in st.session_state and st.session_state.preset_applied:
+            preset = st.session_state.preset_applied
+            st.markdown(
+                f"""
+                <div class="preset-notification-banner {preset['type']}">
+                    <div style="display:flex; align-items:center;">
+                        <span class="preset-icon-badge">{preset['icon']}</span>
+                        <div>
+                            <div style="font-weight:700; font-size:0.86rem;">{preset['title']}</div>
+                            <div style="font-size:0.75rem; opacity:0.85;">{preset['desc']}</div>
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
         col_a, col_b = st.columns(2)
         with col_a:
             if st.button("🟢 Loyal", use_container_width=True):
+                if st.session_state.get("last_prediction"):
+                    st.session_state.trigger_exit = True
+                else:
+                    with st.spinner("Loading..."):
+                        time.sleep(0.6)
                 apply_preset(LOYAL)
-                st.session_state.last_prediction = None
                 st.session_state.random_customer_info = None
+                st.session_state.preset_applied = {
+                    "type": "loyal",
+                    "icon": "🟢",
+                    "title": "Loyal Profile Loaded",
+                    "desc": "Long tenure (65m), Two-year contract, Fiber Optic",
+                }
+                st.toast("🟢 Loaded Loyal Customer Profile!", icon="✨")
                 st.rerun()
         with col_b:
             if st.button("🔴 At-risk", use_container_width=True):
+                if st.session_state.get("last_prediction"):
+                    st.session_state.trigger_exit = True
+                else:
+                    with st.spinner("Loading..."):
+                        time.sleep(0.6)
                 apply_preset(AT_RISK)
-                st.session_state.last_prediction = None
                 st.session_state.random_customer_info = None
+                st.session_state.preset_applied = {
+                    "type": "at_risk",
+                    "icon": "🔴",
+                    "title": "At-Risk Profile Loaded",
+                    "desc": "Short tenure (2m), Month-to-month, Fiber Optic",
+                }
+                st.toast("🔴 Loaded At-Risk Customer Profile!", icon="⚠️")
                 st.rerun()
 
         col_c, col_d = st.columns(2)
         with col_c:
             if st.button("🎲 Random Sample", use_container_width=True, help="Sample a random customer from Telco_Cusomer_Churn.csv"):
+                if st.session_state.get("last_prediction"):
+                    st.session_state.trigger_exit = True
+                else:
+                    with st.spinner("Sampling..."):
+                        time.sleep(0.6)
                 sampled_form, cust_id, actual_churn = sample_random_customer()
                 if sampled_form:
                     apply_preset(sampled_form)
@@ -109,13 +161,30 @@ def render_sidebar(model_names: list[str], best_model_name: str | None) -> dict:
                         "customer_id": cust_id,
                         "actual_churn": actual_churn,
                     }
-                    st.session_state.last_prediction = None
+                    st.session_state.preset_applied = {
+                        "type": "random",
+                        "icon": "🎲",
+                        "title": f"Random Customer Loaded",
+                        "desc": f"ID: {cust_id} · Ground Truth: {actual_churn}",
+                    }
+                    st.toast(f"🎲 Sampled Customer {cust_id} from dataset!", icon="📊")
                     st.rerun()
         with col_d:
             if st.button("↺ Reset form", use_container_width=True):
+                if st.session_state.get("last_prediction"):
+                    st.session_state.trigger_exit = True
+                else:
+                    with st.spinner("Resetting..."):
+                        time.sleep(0.6)
                 apply_preset(DEFAULTS)
-                st.session_state.last_prediction = None
                 st.session_state.random_customer_info = None
+                st.session_state.preset_applied = {
+                    "type": "reset",
+                    "icon": "↺",
+                    "title": "Form Reset to Defaults",
+                    "desc": "All fields restored to initial default values",
+                }
+                st.toast("↺ Form reset to default inputs.", icon="🧹")
                 st.rerun()
 
         # ── Customer profile ───────────────────────────────────────────────
