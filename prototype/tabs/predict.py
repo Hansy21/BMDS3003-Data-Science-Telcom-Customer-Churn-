@@ -1,9 +1,10 @@
 """
 Prediction Dashboard tab — supports both Single Model focus view and
-Compare All Models 4-model probability comparison view.
+Compare All Models 4-model probability comparison view with modern animations.
 """
 
 import textwrap
+import time
 import pandas as pd
 import streamlit as st
 
@@ -25,7 +26,7 @@ def _get_risk_meter_html(probability: float, threshold: float, accent: str) -> s
     pct = probability * 100
     clamped_marker = max(8.0, min(92.0, pct))
     return textwrap.dedent(f"""
-<div class="risk-meter" style="margin: 0.9rem 0 0.4rem; padding-top: 1.85rem;">
+<div class="risk-meter anim-fade-in anim-stagger-2" style="margin: 0.9rem 0 0.4rem; padding-top: 1.85rem;">
     <div class="risk-meter-track"
          style="background: linear-gradient(to right,
              #bbf7d0 0%, #bbf7d0 {thr_pct}%,
@@ -111,7 +112,7 @@ def _run_prediction(sidebar: dict, feature_columns, scaler) -> None:
 def _render_empty_state() -> None:
     st.markdown(
         textwrap.dedent("""
-        <div class="empty-state">
+        <div class="empty-state anim-scale-in">
             <h3 style="margin-top:0;">No prediction yet</h3>
             <p>Use the <b>sidebar</b> to set customer details or click <b>🎲 Random Sample</b>,<br>
             then click <b>Predict churn</b>.</p>
@@ -159,7 +160,7 @@ def _render_ground_truth_banner(rand_info: dict, match_note: str | None = None) 
 
     st.markdown(
         textwrap.dedent(f"""
-        <div class="ground-truth-banner">
+        <div class="ground-truth-banner anim-fade-in">
             <div>
                 <span class="ground-truth-title">🎲 Random Dataset Sample:</span>
                 <span style="font-family: monospace; font-size:0.9rem; color:#475569; margin-left:0.35rem;">Customer ID: {cust_id}</span>
@@ -186,7 +187,7 @@ def _render_single_model_result(result: dict, feature_columns) -> None:
 
     st.markdown(
         textwrap.dedent(f"""
-        <div class="result-banner"
+        <div class="result-banner anim-fade-in"
              style="background: linear-gradient(135deg, {banner_color}, {banner_color}cc);">
             <h2>{banner_title}</h2>
             <p style="margin-top:0.4rem; font-size:0.95rem;">
@@ -201,7 +202,7 @@ def _render_single_model_result(result: dict, feature_columns) -> None:
     # Stat row
     st.markdown(
         textwrap.dedent(f"""
-        <div class="stat-row">
+        <div class="stat-row anim-fade-in anim-stagger-1">
             <div class="stat-cell" style="--accent:{result['accent']}">
                 <div class="stat-eyebrow">Churn probability</div>
                 <div class="stat-hero-value">{pct:.1f}<span>%</span></div>
@@ -237,7 +238,7 @@ def _render_single_model_result(result: dict, feature_columns) -> None:
     # Action box
     st.markdown(
         textwrap.dedent(f"""
-        <div class="action-box" style="--accent:{result['accent']};">
+        <div class="action-box anim-fade-in anim-stagger-3" style="--accent:{result['accent']};">
             <div style="font-weight:800; font-size:1.05rem; color:{result['accent']}; margin-bottom:0.35rem;">
                 🎯 Recommended Action ({result['band']} Risk):
             </div>
@@ -323,7 +324,7 @@ def _render_overall_decision_box(model_results: dict) -> None:
         sub = "Evenly divided prediction: 2 models predict Churn and 2 models predict Stay."
         badge_text = "Borderline Customer · Individual Model Review Recommended"
 
-    html = f"""<div class="overall-decision-box {box_class}">
+    html = f"""<div class="overall-decision-box {box_class} anim-scale-in">
 <div class="decision-box-title">{icon} {title}</div>
 <div class="decision-box-sub">{sub}</div>
 <div class="decision-pills-row">
@@ -336,8 +337,8 @@ def _render_overall_decision_box(model_results: dict) -> None:
     st.markdown(html, unsafe_allow_html=True)
 
 
-def _render_model_column_card(name: str, m: dict) -> None:
-    """Render a compact vertical card for 4-column side-by-side layout."""
+def _render_model_column_card(name: str, m: dict, stagger_idx: int = 1) -> None:
+    """Render a compact vertical card for 4-column side-by-side layout with staggered animation."""
     pct = m["probability"] * 100
     is_churn = m["prediction"] == 1
     badge_class = "churn" if is_churn else "stay"
@@ -345,8 +346,9 @@ def _render_model_column_card(name: str, m: dict) -> None:
     best_badge_html = '<span class="best-badge">Best</span>' if m.get("is_best") else ""
 
     meter_html = _get_risk_meter_html(m["probability"], m["threshold"], m["accent"])
+    stagger_class = f"anim-stagger-{stagger_idx}"
 
-    card_html = f"""<div class="model-4col-card" style="--accent:{m['accent']};">
+    card_html = f"""<div class="model-4col-card {stagger_class}" style="--accent:{m['accent']};">
 <div class="model-4col-header">
 <div class="model-4col-title" title="{name}">{name}</div>
 {best_badge_html}
@@ -389,9 +391,9 @@ def _render_compare_all_result(result: dict) -> None:
     model_names = list(model_results.keys())
     cols = [col1, col2, col3, col4]
 
-    for col, name in zip(cols, model_names):
+    for idx, (col, name) in enumerate(zip(cols, model_names), start=1):
         with col:
-            _render_model_column_card(name, model_results[name])
+            _render_model_column_card(name, model_results[name], stagger_idx=idx)
 
     # 3. Comparative Probability Chart
     st.markdown("<div style='margin-top: 1.25rem;'></div>", unsafe_allow_html=True)
@@ -447,11 +449,26 @@ def _render_result(result: dict, feature_columns) -> None:
 
 def render_predict_tab(sidebar: dict, feature_columns, scaler) -> None:
     """Entry point called from app.py inside the Prediction Dashboard tab."""
+
+    # ── Run prediction if button was pressed ───────────────────────────────
     if sidebar["predict_clicked"]:
-        _run_prediction(sidebar, feature_columns, scaler)
+        with st.spinner("⚡ Running machine learning models and evaluating churn probability..."):
+            time.sleep(1.2)
+            _run_prediction(sidebar, feature_columns, scaler)
 
     result = st.session_state.get("last_prediction")
-    if result is None or result.get("mode") != sidebar.get("mode"):
+    trigger_exit = st.session_state.get("trigger_exit", False)
+
+    # ── Exit transition: clear results with a brief visual break ───────────
+    if trigger_exit:
+        st.session_state.trigger_exit = False
+        st.session_state.last_prediction = None
+        with st.spinner("✨ Clearing prediction results..."):
+            time.sleep(0.6)
+        st.rerun()
+
+    # ── Normal rendering ───────────────────────────────────────────────────
+    elif result is None or result.get("mode") != sidebar.get("mode"):
         _render_empty_state()
     else:
         _render_result(result, feature_columns)
